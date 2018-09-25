@@ -7,8 +7,12 @@ import javafx.scene.Scene;
 import javafx.stage.Stage;
 
 public class Main extends Application {
-    private static final int WIDTH = 300;
-    private static final int HEIGHT = 275;
+    private static final String PATH = "F:\\local"; //TODO перевести на properties
+    private static final int PORT = 3300;
+    private static final String URL = "localhost";
+
+    private static final int WIDTH = 600;
+    private static final int HEIGHT = 550;
     static Scene loginForm;
     static Scene mainForm;
     static Stage primaryStage;
