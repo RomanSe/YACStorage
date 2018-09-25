@@ -5,7 +5,7 @@ import javafx.fxml.FXML;
 import javafx.scene.control.Label;
 import javafx.scene.control.PasswordField;
 
-public class Controller {
+public class LoginController {
     @FXML
     Label loginField;
 
@@ -13,5 +13,6 @@ public class Controller {
     PasswordField passwordField;
 
     public void handleSubmitButtonAction(ActionEvent actionEvent) {
+
     }
 }

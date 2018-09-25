@@ -7,12 +7,20 @@ import javafx.scene.Scene;
 import javafx.stage.Stage;
 
 public class Main extends Application {
+    private static final int WIDTH = 300;
+    private static final int HEIGHT = 275;
+    Scene loginForm;
+    Scene mainForm;
 
     @Override
     public void start(Stage primaryStage) throws Exception{
-        Parent root = FXMLLoader.load(getClass().getResource("form.fxml"));
+        Parent loginNode = FXMLLoader.load(getClass().getResource("loginForm.fxml"));
+        loginForm = new Scene(loginNode, WIDTH, HEIGHT);
+        Parent mainNode = FXMLLoader.load(getClass().getResource("mainForm.fxml"));
+        mainForm = new Scene(mainNode, WIDTH, HEIGHT);
+
         primaryStage.setTitle("YACStorage");
-        primaryStage.setScene(new Scene(root, 300, 275));
+        primaryStage.setScene(loginForm);
         primaryStage.show();
     }
 
