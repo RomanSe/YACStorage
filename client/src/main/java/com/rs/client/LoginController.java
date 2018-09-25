@@ -13,6 +13,6 @@ public class LoginController {
     PasswordField passwordField;
 
     public void handleSubmitButtonAction(ActionEvent actionEvent) {
-
+        Main.primaryStage.setScene(Main.mainForm);
     }
 }

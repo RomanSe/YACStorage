@@ -9,14 +9,16 @@ import javafx.stage.Stage;
 public class Main extends Application {
     private static final int WIDTH = 300;
     private static final int HEIGHT = 275;
-    Scene loginForm;
-    Scene mainForm;
+    static Scene loginForm;
+    static Scene mainForm;
+    static Stage primaryStage;
 
     @Override
     public void start(Stage primaryStage) throws Exception{
-        Parent loginNode = FXMLLoader.load(getClass().getResource("loginForm.fxml"));
+        this.primaryStage = primaryStage;
+        Parent loginNode = FXMLLoader.load(getClass().getResource("../../../loginForm.fxml"));
         loginForm = new Scene(loginNode, WIDTH, HEIGHT);
-        Parent mainNode = FXMLLoader.load(getClass().getResource("mainForm.fxml"));
+        Parent mainNode = FXMLLoader.load(getClass().getResource("../../../mainForm.fxml"));
         mainForm = new Scene(mainNode, WIDTH, HEIGHT);
 
         primaryStage.setTitle("YACStorage");
