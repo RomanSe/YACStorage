@@ -1,12 +1,18 @@
 package com.rs.common.model.message;
 
+import java.io.Serializable;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import javax.xml.bind.DatatypeConverter;
 
-public class AuthMsg {
+public class AuthMsg implements Serializable {
     private String login;
     private String passwordHash;
+
+    public AuthMsg(String login, String password) throws NoSuchAlgorithmException {
+        this.login = login;
+        this.passwordHash = generateHash(password);
+    }
 
     public String getLogin() {
         return login;
@@ -20,16 +26,11 @@ public class AuthMsg {
         return passwordHash;
     }
 
-    public void setPasswordHash(String password) {
-        try {
-            MessageDigest md = MessageDigest.getInstance("SHA-256");
-            md.update(password.getBytes());
-            byte[] digest = md.digest();
-            this.passwordHash = DatatypeConverter.printBase64Binary(digest);
-        } catch (NoSuchAlgorithmException e) {
-            e.printStackTrace();
-        }
-
+    private String generateHash(String password) throws NoSuchAlgorithmException {
+        MessageDigest md = MessageDigest.getInstance("SHA-256");
+        md.update(password.getBytes());
+        byte[] digest = md.digest();
+        return DatatypeConverter.printBase64Binary(digest);
     }
 }
 

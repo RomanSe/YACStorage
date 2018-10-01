@@ -11,10 +11,12 @@ import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.handler.codec.serialization.ClassResolvers;
 import io.netty.handler.codec.serialization.ObjectDecoder;
 import io.netty.handler.codec.serialization.ObjectEncoder;
+import com.rs.common.DefaultConfig;
+
+
 
 public class YACStorageServer {
     //TODO add ssl
-    private static final int PORT = 8189; //TODO вынести в properties
     private static final int MAX_OBJ_SIZE = 1024 * 1024 * 100; // 10 mb
     private static final int WAITING_CONNECTION_REQUESTS = 128;
 
@@ -44,7 +46,7 @@ public class YACStorageServer {
                     .option(ChannelOption.SO_BACKLOG, WAITING_CONNECTION_REQUESTS)
                     .option(ChannelOption.TCP_NODELAY, true)
                     .childOption(ChannelOption.SO_KEEPALIVE, true);
-            ChannelFuture future = bootstrap.bind(PORT).sync();
+            ChannelFuture future = bootstrap.bind(port).sync();
             future.channel().closeFuture().sync();
         } catch (InterruptedException e) {
             e.printStackTrace();
@@ -52,6 +54,16 @@ public class YACStorageServer {
             serverGroup.shutdownGracefully();
             workerGroup.shutdownGracefully();
         };
+    }
+
+    public static void main(String[] args) throws Exception {
+        int port;
+        if (args.length > 0) {
+            port = Integer.parseInt(args[0]);
+        } else {
+            port = DefaultConfig.PORT;
+        }
+        new YACStorageServer(port).run();
     }
 
 }

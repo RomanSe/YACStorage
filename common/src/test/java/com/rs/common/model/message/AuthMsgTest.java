@@ -1,8 +1,9 @@
 package com.rs.common.model.message;
 
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+
+import java.security.NoSuchAlgorithmException;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -11,9 +12,11 @@ class AuthMsgTest {
 
     @BeforeEach
     void before() {
-        authMsg =  new AuthMsg();
-        authMsg.setLogin("login1");
-        authMsg.setPasswordHash("hello world!");
+        try {
+            authMsg =  new AuthMsg("login1", "hello world!");
+        } catch (NoSuchAlgorithmException e) {
+            e.printStackTrace();
+        }
     }
 
     @Test
@@ -30,11 +33,5 @@ class AuthMsgTest {
     @Test
     void getPasswordHash() {
         assertEquals( "dQnlvaDHYtK6x/kNdYtbImP6Acy8VCq1498WO+CObKk=", authMsg.getPasswordHash());
-    }
-
-    @Test
-    void setPasswordHash() {
-        authMsg.setPasswordHash("hello");
-        assertEquals("LPJNul+wow4m6DsqxbninhsWHlwfp0JecwQzYpOLmCQ=", authMsg.getPasswordHash());
     }
 }
