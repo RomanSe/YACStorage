@@ -40,7 +40,7 @@ public class YACStorageServer {
                             ch.pipeline().addLast(
                                     new ObjectDecoder(MAX_OBJ_SIZE, ClassResolvers.cacheDisabled(null)),
                                     new ObjectEncoder(),
-                                    new AuthInboundHandler());
+                                    new CommandInboundHandler());
                         }
                     })
                     .option(ChannelOption.SO_BACKLOG, WAITING_CONNECTION_REQUESTS)

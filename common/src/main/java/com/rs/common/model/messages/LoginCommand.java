@@ -1,15 +1,16 @@
-package com.rs.common.model.message;
+package com.rs.common.model.messages;
 
 import java.io.Serializable;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import javax.xml.bind.DatatypeConverter;
 
-public class AuthMsg implements Serializable {
+public class LoginCommand extends Command {
+    private static final long serialVersionUID = 6277641625152064169L;
     private String login;
     private String passwordHash;
 
-    public AuthMsg(String login, String password) throws NoSuchAlgorithmException {
+    public LoginCommand(String login, String password) throws NoSuchAlgorithmException {
         this.login = login;
         this.passwordHash = generateHash(password);
     }

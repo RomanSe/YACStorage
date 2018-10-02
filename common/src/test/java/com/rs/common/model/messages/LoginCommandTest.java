@@ -1,4 +1,4 @@
-package com.rs.common.model.message;
+package com.rs.common.model.messages;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -7,13 +7,13 @@ import java.security.NoSuchAlgorithmException;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-class AuthMsgTest {
-    AuthMsg authMsg;
+class LoginCommandTest {
+    LoginCommand loginCommand;
 
     @BeforeEach
     void before() {
         try {
-            authMsg =  new AuthMsg("login1", "hello world!");
+            loginCommand =  new LoginCommand("login1", "hello world!");
         } catch (NoSuchAlgorithmException e) {
             e.printStackTrace();
         }
@@ -21,17 +21,17 @@ class AuthMsgTest {
 
     @Test
     void getLogin() {
-        assertEquals("login1", authMsg.getLogin());
+        assertEquals("login1", loginCommand.getLogin());
     }
 
     @Test
     void setLogin() {
-        authMsg.setLogin("login2");
-        assertEquals("login2", authMsg.getLogin());
+        loginCommand.setLogin("login2");
+        assertEquals("login2", loginCommand.getLogin());
     }
 
     @Test
     void getPasswordHash() {
-        assertEquals( "dQnlvaDHYtK6x/kNdYtbImP6Acy8VCq1498WO+CObKk=", authMsg.getPasswordHash());
+        assertEquals( "dQnlvaDHYtK6x/kNdYtbImP6Acy8VCq1498WO+CObKk=", loginCommand.getPasswordHash());
     }
 }
