@@ -1,11 +1,11 @@
-package com.rs.common.model.messages;
+package com.rs.common.messages;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.security.NoSuchAlgorithmException;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class LoginCommandTest {
     LoginCommand loginCommand;

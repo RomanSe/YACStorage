@@ -1,4 +1,4 @@
-package com.rs.common.model.messages;
+package com.rs.common.messages;
 
 import java.io.Serializable;
 

@@ -1,8 +1,8 @@
 package com.rs.server;
 
 import com.rs.common.model.ResponseCode;
-import com.rs.common.model.messages.LoginCommand;
-import com.rs.common.model.messages.ResponseMsg;
+import com.rs.common.messages.LoginCommand;
+import com.rs.common.messages.ResponseMsg;
 
 public class CommandProcessor {
     public static ResponseMsg process(UserContext userContext, LoginCommand command) {

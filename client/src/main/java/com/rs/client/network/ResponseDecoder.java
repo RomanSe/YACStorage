@@ -1,6 +1,6 @@
 package com.rs.client.network;
 
-import com.rs.common.model.messages.ResponseMsg;
+import com.rs.common.messages.ResponseMsg;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.util.ReferenceCountUtil;

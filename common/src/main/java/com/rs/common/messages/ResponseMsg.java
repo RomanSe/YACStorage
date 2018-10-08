@@ -1,4 +1,4 @@
-package com.rs.common.model.messages;
+package com.rs.common.messages;
 
 import com.rs.common.model.File;
 import com.rs.common.model.FilePart;

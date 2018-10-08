@@ -1,6 +1,6 @@
 package com.rs.server;
 
-import com.rs.common.model.messages.LoginCommand;
+import com.rs.common.messages.LoginCommand;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.util.ReferenceCountUtil;

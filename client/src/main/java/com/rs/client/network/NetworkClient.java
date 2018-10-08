@@ -1,7 +1,8 @@
 package com.rs.client.network;
 
-import com.rs.common.model.ResponseCode;
-import com.rs.common.model.messages.LoginCommand;
+import com.rs.common.messages.Command;
+import com.rs.common.messages.LoginCommand;
+import com.rs.common.messages.ResponseMsg;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelInitializer;
@@ -15,17 +16,22 @@ import io.netty.handler.codec.serialization.ObjectDecoder;
 import io.netty.handler.codec.serialization.ObjectEncoder;
 import com.rs.common.DefaultConfig;
 
-import java.security.NoSuchAlgorithmException;
+import java.io.IOException;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.locks.Lock;
 
-public class NetworkClient extends Thread {
+public class NetworkClient extends Thread{
     private static final int MAX_OBJ_SIZE = 1024 * 1024 * 100; // TODO вынести в properties
     private int port;
     private String host;
+    private CountDownLatch startCountDown;
     private CommandHandler commandHandler;
 
     public NetworkClient(String host, int port) {
         this.port = port;
         this.host = host;
+        startCountDown = new CountDownLatch(1);
     }
 
     @Override
@@ -45,20 +51,42 @@ public class NetworkClient extends Thread {
                     ch.pipeline().addLast(
                             new ObjectDecoder(MAX_OBJ_SIZE, ClassResolvers.cacheDisabled(null)),
                             new ObjectEncoder(),
-                            //new CommandEncoder(),
-                            //new ResponseDecoder(),
+                            new ResponseDecoder(),
                             commandHandler
                     );
                 }
             });
             ChannelFuture channelFuture = bootstrap.connect(host, port).sync();
-            commandHandler.login("user","");
+            startCountDown.countDown();
             channelFuture.channel().closeFuture().sync();
         } catch (InterruptedException e) {
             e.printStackTrace();
         } finally {
+            startCountDown.countDown();
             workerGroup.shutdownGracefully();
         }
+    }
+
+    void gentleStart() throws InterruptedException {
+        start();
+        startCountDown.await();
+    }
+
+    public ResponseMsg invoke(Command command) {
+        ResponseMsg result = null;
+        try {
+            CountDownLatch waitingCountDown = commandHandler.invoke(command);
+            if (waitingCountDown.await(10, TimeUnit.SECONDS)) {
+                System.out.println(commandHandler.responseMsg.getResponseCode());
+                result = commandHandler.responseMsg;
+            }
+
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        return result;
     }
 
     public static void main(String[] args) throws Exception {
@@ -70,7 +98,11 @@ public class NetworkClient extends Thread {
                 port = Integer.parseInt(args[1]);
             }
         }
-        new NetworkClient(host, port).run();
+        NetworkClient networkClient = new NetworkClient(host, port);
+        networkClient.gentleStart();
+        System.out.println("running");
+        networkClient.invoke(new LoginCommand("user", "123"));
+
     }
 
 
