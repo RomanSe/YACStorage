@@ -1,15 +1,24 @@
 package com.rs.common.messages;
 
-import com.rs.common.model.File;
+import com.rs.common.model.FileDescr;
 import com.rs.common.model.FilePart;
-import com.rs.common.model.ResponseCode;
 
 import java.io.Serializable;
 import java.util.ArrayList;
 
-public class ResponseMsg implements Serializable {
+public class Response implements Serializable {
     private static final long serialVersionUID = -8700849836502485019L;
     private ResponseCode responseCode;
+
+    public String getErrorDescription() {
+        return errorDescription;
+    }
+
+    public void setErrorDescription(String errorDescription) {
+        this.errorDescription = errorDescription;
+    }
+
+    private String errorDescription;
 
     public ResponseCode getResponseCode() {
         return responseCode;
@@ -19,12 +28,12 @@ public class ResponseMsg implements Serializable {
         this.responseCode = responseCode;
     }
 
-    public ArrayList<File> getFileList() {
-        return fileList;
+    public ArrayList<FileDescr> getFileDescrList() {
+        return fileDescrList;
     }
 
-    public void setFileList(ArrayList<File> fileList) {
-        this.fileList = fileList;
+    public void setFileDescrList(ArrayList<FileDescr> fileDescrList) {
+        this.fileDescrList = fileDescrList;
     }
 
     public FilePart getFilePart() {
@@ -35,7 +44,7 @@ public class ResponseMsg implements Serializable {
         this.filePart = filePart;
     }
 
-    private ArrayList<File> fileList;
+    private ArrayList<FileDescr> fileDescrList;
     private FilePart filePart;
 
 }

@@ -17,8 +17,6 @@ import com.rs.common.DefaultConfig;
 
 public class YACStorageServer {
     //TODO add ssl
-    private static final int MAX_OBJ_SIZE = 1024 * 1024 * 100; // 10 mb
-    private static final int WAITING_CONNECTION_REQUESTS = 128;
 
     private int port;
 
@@ -38,12 +36,12 @@ public class YACStorageServer {
                         @Override
                         protected void initChannel(SocketChannel ch) throws Exception {
                             ch.pipeline().addLast(
-                                    new ObjectDecoder(MAX_OBJ_SIZE, ClassResolvers.cacheDisabled(null)),
+                                    new ObjectDecoder(DefaultConfig.MAX_OBJ_SIZE, ClassResolvers.cacheDisabled(null)),
                                     new ObjectEncoder(),
                                     new CommandInboundHandler());
                         }
                     })
-                    .option(ChannelOption.SO_BACKLOG, WAITING_CONNECTION_REQUESTS)
+                    .option(ChannelOption.SO_BACKLOG, DefaultConfig.WAITING_CONNECTION_REQUESTS)
                     .option(ChannelOption.TCP_NODELAY, true)
                     .childOption(ChannelOption.SO_KEEPALIVE, true);
             ChannelFuture future = bootstrap.bind(port).sync();

@@ -1,4 +1,4 @@
-package com.rs.common.model;
+package com.rs.common.messages;
 
 public enum ResponseCode {
     ACCESS_DENIED("Доступ запрещен"),
@@ -6,8 +6,9 @@ public enum ResponseCode {
     DIRECTORY_NOT_FOUND("Директория не найдена"),
     FILE_NOT_FOUND("Файл не найден"),
     NO_ACCESS("Нет доступа"),
-    NO_LOGIN("Неверный логин или пароль"),
-    OK("", false);
+    INVALID_LOGIN("Неверный логин или пароль"),
+    OK("", false),
+    CANNOT_SAVE_FILE("Невозможно сохранить файл");
 
 
     public String getMessage() {
@@ -31,4 +32,4 @@ public enum ResponseCode {
     }
 
 
-    }
+}

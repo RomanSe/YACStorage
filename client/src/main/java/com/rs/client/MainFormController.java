@@ -1,10 +1,17 @@
 package com.rs.client;
 
 import javafx.event.ActionEvent;
-import javafx.fxml.FXML;
-import javafx.scene.control.Label;
-import javafx.scene.control.PasswordField;
 
 public class MainFormController {
+
+
+    //test
+    public void handleSaveFileAction(ActionEvent actionEvent) {
+        try {
+            Worker.saveFile("123.txt");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
 
 }

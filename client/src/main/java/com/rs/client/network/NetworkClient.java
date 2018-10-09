@@ -2,7 +2,7 @@ package com.rs.client.network;
 
 import com.rs.common.messages.Command;
 import com.rs.common.messages.LoginCommand;
-import com.rs.common.messages.ResponseMsg;
+import com.rs.common.messages.Response;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelInitializer;
@@ -16,22 +16,21 @@ import io.netty.handler.codec.serialization.ObjectDecoder;
 import io.netty.handler.codec.serialization.ObjectEncoder;
 import com.rs.common.DefaultConfig;
 
-import java.io.IOException;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.locks.Lock;
+import java.util.concurrent.ArrayBlockingQueue;
 
 public class NetworkClient extends Thread{
     private static final int MAX_OBJ_SIZE = 1024 * 1024 * 100; // TODO вынести в properties
     private int port;
     private String host;
-    private CountDownLatch startCountDown;
+    private final ArrayBlockingQueue<Command> inbox = new ArrayBlockingQueue<>(DefaultConfig.NETWORK_QUEUE_SIZE);
+    private final ArrayBlockingQueue<Response> outbox = new ArrayBlockingQueue<>(DefaultConfig.NETWORK_QUEUE_SIZE);
+
     private CommandHandler commandHandler;
+    private boolean running;
 
     public NetworkClient(String host, int port) {
         this.port = port;
         this.host = host;
-        startCountDown = new CountDownLatch(1);
     }
 
     @Override
@@ -43,52 +42,44 @@ public class NetworkClient extends Thread{
             bootstrap.group(workerGroup);
             bootstrap.channel(NioSocketChannel.class);
             bootstrap.option(ChannelOption.SO_KEEPALIVE, true);
-            commandHandler = new CommandHandler();
+            commandHandler = new CommandHandler(outbox);
             bootstrap.handler(new ChannelInitializer<SocketChannel>() {
 
                 @Override
                 protected void initChannel(SocketChannel ch) throws Exception {
                     ch.pipeline().addLast(
-                            new ObjectDecoder(MAX_OBJ_SIZE, ClassResolvers.cacheDisabled(null)),
+                            new ObjectDecoder(DefaultConfig.MAX_OBJ_SIZE, ClassResolvers.cacheDisabled(null)),
                             new ObjectEncoder(),
-                            new ResponseDecoder(),
+                            //new ResponseDecoder(),
                             commandHandler
                     );
                 }
             });
             ChannelFuture channelFuture = bootstrap.connect(host, port).sync();
-            startCountDown.countDown();
-            channelFuture.channel().closeFuture().sync();
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        } finally {
-            startCountDown.countDown();
-            workerGroup.shutdownGracefully();
-        }
-    }
-
-    void gentleStart() throws InterruptedException {
-        start();
-        startCountDown.await();
-    }
-
-    public ResponseMsg invoke(Command command) {
-        ResponseMsg result = null;
-        try {
-            CountDownLatch waitingCountDown = commandHandler.invoke(command);
-            if (waitingCountDown.await(10, TimeUnit.SECONDS)) {
-                System.out.println(commandHandler.responseMsg.getResponseCode());
-                result = commandHandler.responseMsg;
+            running = true;
+            while (running) {
+                Command command = inbox.take();
+                commandHandler.invoke(command);
             }
 
         } catch (InterruptedException e) {
             e.printStackTrace();
-        } catch (IOException e) {
-            e.printStackTrace();
+        } finally {
+            workerGroup.shutdownGracefully();
         }
-        return result;
     }
 
+    public void invoke(Command command) throws InterruptedException {
+        inbox.put(command);
+    }
+
+    public Response getResponse() throws InterruptedException {
+        return outbox.take();
+    }
+
+
+
+    //for testing
     public static void main(String[] args) throws Exception {
         int port = DefaultConfig.PORT;
         String host = DefaultConfig.HOST;
@@ -99,9 +90,8 @@ public class NetworkClient extends Thread{
             }
         }
         NetworkClient networkClient = new NetworkClient(host, port);
-        networkClient.gentleStart();
-        System.out.println("running");
-        networkClient.invoke(new LoginCommand("user", "123"));
+        networkClient.start();
+        networkClient.invoke(new LoginCommand("user1", "123"));
 
     }
 

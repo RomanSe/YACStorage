@@ -1,7 +1,7 @@
 package com.rs.client.network;
 
 import com.rs.common.messages.Command;
-import com.rs.common.messages.ResponseMsg;
+import com.rs.common.messages.Response;
 import io.netty.channel.ChannelDuplexHandler;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPromise;
@@ -9,13 +9,18 @@ import io.netty.util.ReferenceCountUtil;
 
 import java.io.IOException;
 import java.net.SocketAddress;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CountDownLatch;
 
 public class CommandHandler extends ChannelDuplexHandler {
 
     private ChannelHandlerContext ctx;
-    private CountDownLatch waitingCountDown;
-    protected ResponseMsg responseMsg;
+    private BlockingQueue<Response> outbox;
+
+    public CommandHandler(BlockingQueue<Response> outbox) {
+        this.outbox = outbox;
+    }
 
 
     @Override
@@ -23,9 +28,8 @@ public class CommandHandler extends ChannelDuplexHandler {
         try {
             if (msg == null)
                 return;
-            responseMsg = (ResponseMsg) msg;
+            outbox.put((Response) msg);
         } finally {
-            waitingCountDown.countDown();
             ReferenceCountUtil.release(msg);
         }
     }
@@ -36,11 +40,8 @@ public class CommandHandler extends ChannelDuplexHandler {
         super.connect(ctx, remoteAddress, localAddress, promise);
     }
 
-    public CountDownLatch invoke(Command command) throws IOException {
-        waitingCountDown = new CountDownLatch(1);
-        responseMsg = null;
+    public void invoke(Command command) {
         ctx.writeAndFlush(command);
-        return waitingCountDown;
     }
 
 }

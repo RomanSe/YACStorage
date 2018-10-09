@@ -1,6 +1,5 @@
 package com.rs.client;
 
-import com.rs.client.network.NetworkClient;
 import javafx.application.Application;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
@@ -8,8 +7,6 @@ import javafx.scene.Scene;
 import javafx.stage.Stage;
 
 public class Main extends Application {
-
-    NetworkClient networkClient;
 
     private static final int WIDTH = 600;
     private static final int HEIGHT = 550;

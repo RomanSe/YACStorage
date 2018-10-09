@@ -1,13 +1,15 @@
 package com.rs.server;
 
+import com.rs.common.messages.Command;
 import com.rs.common.messages.LoginCommand;
+import com.rs.common.messages.SaveFileCommand;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.util.ReferenceCountUtil;
 
 public class CommandInboundHandler extends ChannelInboundHandlerAdapter {
 
-    private UserContext userContext = new UserContext();
+    private CommandProcessor commandProcessor = new CommandProcessor();
 
 
     @Override
@@ -16,12 +18,12 @@ public class CommandInboundHandler extends ChannelInboundHandlerAdapter {
             if (msg == null)
                 return;
             if (msg instanceof LoginCommand) {
-                System.out.println("Client text message: " + ((LoginCommand) msg).getLogin());
-                ctx.write(CommandProcessor.process(userContext, (LoginCommand) msg));
-            } else {
-                System.out.printf("Server received wrong object!");
-                return;
+                ctx.write(commandProcessor.process((LoginCommand) msg));
             }
+            if (msg instanceof SaveFileCommand) {
+                ctx.write(commandProcessor.process((SaveFileCommand) msg));
+            }
+
         } finally {
             ReferenceCountUtil.release(msg);
         }
@@ -38,4 +40,5 @@ public class CommandInboundHandler extends ChannelInboundHandlerAdapter {
         //ctx.flush();
         ctx.close();
     }
+
 }

@@ -3,16 +3,25 @@ package com.rs.common.model;
 import java.io.Serializable;
 
 public class FilePart implements Serializable {
-    private int partNumber;
     //TODO hash
     private byte[] bytes;
+    private int startPos;
+    private int endPos;
 
-    public int getPartNumber() {
-        return partNumber;
+    public int getStartPos() {
+        return startPos;
     }
 
-    public void setPartNumber(int partNumber) {
-        this.partNumber = partNumber;
+    public void setStartPos(int startPos) {
+        this.startPos = startPos;
+    }
+
+    public int getEndPos() {
+        return endPos;
+    }
+
+    public void setEndPos(int endPos) {
+        this.endPos = endPos;
     }
 
     public byte[] getBytes() {
