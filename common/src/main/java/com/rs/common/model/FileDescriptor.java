@@ -1,15 +1,28 @@
 package com.rs.common.model;
 
 import java.io.Serializable;
+import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Objects;
 
 //все есть файл
-public class FileDescr implements Serializable {
+public class FileDescriptor implements Serializable {
     private static final long serialVersionUID = 571710974311506623L;
     private String name;
     private String path;
     private long size;
     private boolean isDirectory;
+    private transient Path absolutePath;
+
+    public Path getAbsolutePath() {
+        return absolutePath;
+    }
+
+    public void setAbsolutePath(Path absolutePath) {
+        this.absolutePath = absolutePath;
+    }
+
+
 
     public boolean isDirectory() {
         return isDirectory;
@@ -44,4 +57,18 @@ public class FileDescr implements Serializable {
     }
 
     public String getRelativePath() {return Paths.get(path, name).toString();}
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        FileDescriptor that = (FileDescriptor) o;
+        return Objects.equals(name, that.name) &&
+                Objects.equals(path, that.path);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(name, path);
+    }
 }

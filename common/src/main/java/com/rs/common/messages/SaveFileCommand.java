@@ -1,17 +1,29 @@
 package com.rs.common.messages;
 
-import com.rs.common.model.FileDescr;
+import com.rs.common.model.FileDescriptor;
+import com.rs.common.model.FilePart;
 
 public class SaveFileCommand extends Command{
     private static final long serialVersionUID = -114964002600995666L;
-    private FileDescr fileDescr;
+    private FileDescriptor fileDescriptor;
 
-    public SaveFileCommand(FileDescr fileDescr) {
-        this.fileDescr = fileDescr;
+    public FilePart getFilePart() {
+        return filePart;
     }
 
-    public FileDescr getFileDescr() {
-        return fileDescr;
+    public void setFilePart(FilePart filePart) {
+        this.filePart = filePart;
+    }
+
+    private FilePart filePart;
+
+    public SaveFileCommand(FileDescriptor fileDescriptor, FilePart filePart) {
+        this.fileDescriptor = fileDescriptor;
+        this.filePart = filePart;
+    }
+
+    public FileDescriptor getFileDescriptor() {
+        return fileDescriptor;
     }
 
 }

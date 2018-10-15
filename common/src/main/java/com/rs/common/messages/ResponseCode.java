@@ -8,7 +8,8 @@ public enum ResponseCode {
     NO_ACCESS("Нет доступа"),
     INVALID_LOGIN("Неверный логин или пароль"),
     OK("", false),
-    CANNOT_SAVE_FILE("Невозможно сохранить файл");
+    CANNOT_SAVE_FILE("Невозможно сохранить файл"),
+    FILE_CORRUPTED("Файл поврежден");
 
 
     public String getMessage() {

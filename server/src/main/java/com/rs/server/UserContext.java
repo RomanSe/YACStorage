@@ -18,12 +18,6 @@ public class UserContext {
         isAuthorized = authorized;
     }
 
-    public FileTransferState getFileTransferState() {
-        return fileTransferState;
-    }
-
-    private final FileTransferState fileTransferState = new FileTransferState();
-
     public String getLogin() {
         return login;
     }
@@ -31,14 +25,6 @@ public class UserContext {
     public void setLogin(String login) {
         this.login = login;
         this.rootPath = Paths.get(DefaultConfig.SERVER_ROOT_PATH, login).toString();
-    }
-
-    public class FileTransferState {
-        public String tempPath;
-        boolean isTransferring;
-        Path absolutePath;
-        int lastPos;
-        long size;
     }
 
     public String getRootPath() {

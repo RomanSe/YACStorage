@@ -15,7 +15,6 @@ import java.util.concurrent.CountDownLatch;
 
 public class CommandHandler extends ChannelDuplexHandler {
 
-    private ChannelHandlerContext ctx;
     private BlockingQueue<Response> outbox;
 
     public CommandHandler(BlockingQueue<Response> outbox) {
@@ -32,16 +31,6 @@ public class CommandHandler extends ChannelDuplexHandler {
         } finally {
             ReferenceCountUtil.release(msg);
         }
-    }
-
-    @Override
-    public void connect(ChannelHandlerContext ctx, SocketAddress remoteAddress, SocketAddress localAddress, ChannelPromise promise) throws Exception {
-        this.ctx = ctx;
-        super.connect(ctx, remoteAddress, localAddress, promise);
-    }
-
-    public void invoke(Command command) {
-        ctx.writeAndFlush(command);
     }
 
 }

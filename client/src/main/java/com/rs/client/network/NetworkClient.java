@@ -4,10 +4,7 @@ import com.rs.common.messages.Command;
 import com.rs.common.messages.LoginCommand;
 import com.rs.common.messages.Response;
 import io.netty.bootstrap.Bootstrap;
-import io.netty.channel.ChannelFuture;
-import io.netty.channel.ChannelInitializer;
-import io.netty.channel.ChannelOption;
-import io.netty.channel.EventLoopGroup;
+import io.netty.channel.*;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
@@ -25,7 +22,7 @@ public class NetworkClient extends Thread{
     private final ArrayBlockingQueue<Command> inbox = new ArrayBlockingQueue<>(DefaultConfig.NETWORK_QUEUE_SIZE);
     private final ArrayBlockingQueue<Response> outbox = new ArrayBlockingQueue<>(DefaultConfig.NETWORK_QUEUE_SIZE);
 
-    private CommandHandler commandHandler;
+    private Channel channel;
     private boolean running;
 
     public NetworkClient(String host, int port) {
@@ -42,7 +39,6 @@ public class NetworkClient extends Thread{
             bootstrap.group(workerGroup);
             bootstrap.channel(NioSocketChannel.class);
             bootstrap.option(ChannelOption.SO_KEEPALIVE, true);
-            commandHandler = new CommandHandler(outbox);
             bootstrap.handler(new ChannelInitializer<SocketChannel>() {
 
                 @Override
@@ -50,16 +46,16 @@ public class NetworkClient extends Thread{
                     ch.pipeline().addLast(
                             new ObjectDecoder(DefaultConfig.MAX_OBJ_SIZE, ClassResolvers.cacheDisabled(null)),
                             new ObjectEncoder(),
-                            //new ResponseDecoder(),
-                            commandHandler
+                            new CommandHandler(outbox)
                     );
+                    channel = ch;
                 }
             });
             ChannelFuture channelFuture = bootstrap.connect(host, port).sync();
             running = true;
             while (running) {
                 Command command = inbox.take();
-                commandHandler.invoke(command);
+                channel.writeAndFlush(command);
             }
 
         } catch (InterruptedException e) {
@@ -91,7 +87,9 @@ public class NetworkClient extends Thread{
         }
         NetworkClient networkClient = new NetworkClient(host, port);
         networkClient.start();
-        networkClient.invoke(new LoginCommand("user1", "123"));
+        networkClient.invoke(new LoginCommand("user", "123"));
+        Response response = networkClient.getResponse();
+        System.out.println(response.getResponseCode());
 
     }
 
