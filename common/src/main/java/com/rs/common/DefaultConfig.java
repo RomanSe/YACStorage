@@ -12,4 +12,6 @@ public class DefaultConfig {
     public static final int WAITING_CONNECTION_REQUESTS = 128;
     public static final String SERVER_ROOT_PATH = "E:\\cloud\\server";
     public static final String PART_FILE_EXT = ".part";
+    public static final int MESSAGES_QUEUE_SIZE = 100;
+    public static final int POOL = 5;
 }

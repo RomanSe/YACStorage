@@ -1,5 +1,6 @@
 package com.rs.server;
 
+import com.rs.common.messages.Command;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelInitializer;
@@ -13,18 +14,26 @@ import io.netty.handler.codec.serialization.ObjectDecoder;
 import io.netty.handler.codec.serialization.ObjectEncoder;
 import com.rs.common.DefaultConfig;
 
+import java.util.concurrent.*;
 
 
 public class YACStorageServer {
     //TODO add ssl
 
     private int port;
+    private ExecutorService pool;
+    private BlockingQueue<Job> queue;
 
     public YACStorageServer(int port) {
         this.port = port;
     }
 
     public void run() {
+        queue  = new LinkedBlockingQueue<>();
+        pool = Executors.newFixedThreadPool(DefaultConfig.POOL);
+        for (int i = 0; i < DefaultConfig.POOL; i++) {
+            pool.execute(new CommandProcessor(queue));
+        }
         EventLoopGroup serverGroup  = new NioEventLoopGroup();
         EventLoopGroup workerGroup  = new NioEventLoopGroup();
         try {
@@ -34,11 +43,11 @@ public class YACStorageServer {
                     .childHandler(new ChannelInitializer<SocketChannel>() {
 
                         @Override
-                        protected void initChannel(SocketChannel ch) throws Exception {
-                            ch.pipeline().addLast(
+                        protected void initChannel(SocketChannel channel) throws Exception {
+                            channel.pipeline().addLast(
                                     new ObjectDecoder(DefaultConfig.MAX_OBJ_SIZE, ClassResolvers.cacheDisabled(null)),
                                     new ObjectEncoder(),
-                                    new CommandInboundHandler());
+                                    new CommandInboundHandler(channel, pool, queue));
                         }
                     })
                     .option(ChannelOption.SO_BACKLOG, DefaultConfig.WAITING_CONNECTION_REQUESTS)
