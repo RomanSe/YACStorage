@@ -2,7 +2,8 @@ package com.rs.common.messages;
 
 import com.rs.common.Context;
 import com.rs.common.DefaultConfig;
-import com.rs.common.FileProcessingInfo;
+import com.rs.common.TempFile;
+import com.rs.common.FileUtilities;
 import com.rs.common.model.FileDescriptor;
 import com.rs.common.model.FilePart;
 
@@ -10,13 +11,13 @@ import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 
 import static com.rs.common.messages.ResponseCode.*;
 
 public class SaveFileCommand extends Command {
     private static final long serialVersionUID = -114964002600995666L;
     private FileDescriptor fileDescriptor;
+    private FilePart filePart;
 
     public FilePart getFilePart() {
         return filePart;
@@ -25,8 +26,6 @@ public class SaveFileCommand extends Command {
     public void setFilePart(FilePart filePart) {
         this.filePart = filePart;
     }
-
-    private FilePart filePart;
 
     public SaveFileCommand(FileDescriptor fileDescriptor, FilePart filePart) {
         this.fileDescriptor = fileDescriptor;
@@ -46,36 +45,28 @@ public class SaveFileCommand extends Command {
             return response;
         }
         try {
-            FileProcessingInfo fileInfo = context.getFileProcessingInfo();
-            Path targetFilePath = getFilePath(context.getRootPath(), fileDescriptor.getPath(), fileDescriptor.getName());
-            if (fileInfo == null || !fileInfo.getTargetPath().equals(targetFilePath)) {  //информация о другом файле или файла не было
-                if (fileInfo != null) {
-                    fileInfo.getTempFile().close();
-                    Files.deleteIfExists(fileInfo.getTargetPath()); //сначала удалим предыдущий временный файл
-                } else {
-                    fileInfo = new FileProcessingInfo();
-                    context.setFileProcessingInfo(fileInfo);
-                }
-                fileInfo.setTargetPath(targetFilePath);
-                fileInfo.setTempFilePath(getFilePath(context.getRootPath(), fileDescriptor.getPath(), fileDescriptor.getName() + DefaultConfig.PART_FILE_EXT));
-                if (fileInfo.getTempFilePath() != null)
-                    Files.deleteIfExists(fileInfo.getTargetPath()); //удалим временный файл
-                fileInfo.setTempFile(new RandomAccessFile(fileInfo.getTempFilePath().toFile(), "rw"));
+            TempFile tempFile = context.getTempFile();
+            Path targetFilePath = FileUtilities.getFilePath(context.getRootPath(), fileDescriptor.getPath(), fileDescriptor.getName());
+            if (tempFile != null && !tempFile.getTargetPath().equals(targetFilePath)) {
+                System.out.println("Remove " + tempFile.getTempFilePath());
+                tempFile.close();
+                Files.deleteIfExists(tempFile.getTempFilePath()); //удаляем предыдущий временный
+                tempFile = null;
             }
-            //TODO проверить целостность
+            if (tempFile == null ) {
+                tempFile = TempFile.getInstance(context.getRootPath(), fileDescriptor.getPath(), fileDescriptor.getName());
+                context.setTempFile(tempFile);
+            }
 //            filePart.getBytes()[0] = 0;//поломаем
             if (filePart.damaged()) {
                 response.setResponseCode(FILE_CORRUPTED);
                 return response;
             } else {
-                RandomAccessFile tempFile = fileInfo.getTempFile();
                 tempFile.seek(filePart.getStartPos());
                 tempFile.write(filePart.getBytes(), 0, filePart.getLength());
                 if (tempFile.getFilePointer() == fileDescriptor.getSize()) {  //файл записан
-                    tempFile.close();
-                    if (Files.exists(fileInfo.getTargetPath()))
-                        Files.delete(fileInfo.getTargetPath());
-                    Files.move(fileInfo.getTempFilePath(), fileInfo.getTargetPath());
+                    tempFile.moveToTarget();
+                    context.setTempFile(null);
                 }
                 response.setResponseCode(OK);
             }
@@ -87,10 +78,4 @@ public class SaveFileCommand extends Command {
         }
         return response;
     }
-
-    public static Path getFilePath(String rootPath, String path, String name) throws IOException {
-        Path p = Paths.get(rootPath, path).toRealPath(); //TODO сделать проверку на безопасность пути
-        return Paths.get(p.toString(), name).toAbsolutePath();
-    }
-
 }

@@ -1,5 +1,6 @@
 package com.rs.common.model;
 
+import java.io.IOException;
 import java.io.Serializable;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -71,4 +72,6 @@ public class FileDescriptor implements Serializable {
     public int hashCode() {
         return Objects.hash(name, path);
     }
+
+
 }

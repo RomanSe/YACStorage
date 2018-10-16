@@ -10,7 +10,8 @@ public enum ResponseCode {
     OK("", false),
     CANNOT_SAVE_FILE("Невозможно сохранить файл"),
     FILE_CORRUPTED("Файл поврежден"),
-    BUSY("Сервер занят");
+    BUSY("Сервер занят"),
+    COMPLETE("Передача закончена",false);
 
     public String getMessage() {
         return message;

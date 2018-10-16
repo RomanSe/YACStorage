@@ -1,23 +1,25 @@
 package com.rs.common;
 
-import com.rs.common.DefaultConfig;
-
-import java.nio.file.Path;
-import java.nio.file.Paths;
-
 public class Context {
     private String login;
     private String rootPath;
-    private FileProcessingInfo fileProcessingInfo;
+    private TempFile tempFile;
+    private byte[] buffer;
 
-    public FileProcessingInfo getFileProcessingInfo() {
-        return fileProcessingInfo;
+    public byte[] getBuffer() {
+        if (buffer == null)
+            buffer = new byte[DefaultConfig.FILE_CHANK_SIZE];
+        return buffer;
     }
 
-    public void setFileProcessingInfo(FileProcessingInfo fileProcessingInfo) {
-        this.fileProcessingInfo = fileProcessingInfo;
+
+    public TempFile getTempFile() {
+        return tempFile;
     }
 
+    public void setTempFile(TempFile tempFile) {
+        this.tempFile = tempFile;
+    }
 
 
     public void setRootPath(String rootPath) {

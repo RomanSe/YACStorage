@@ -2,6 +2,9 @@ package com.rs.client;
 
 import com.rs.client.network.NetworkClient;
 import com.rs.common.DefaultConfig;
+import com.rs.common.FileUtilities;
+import com.rs.common.TempFile;
+import com.rs.common.messages.GetFileCommand;
 import com.rs.common.messages.LoginCommand;
 import com.rs.common.messages.Response;
 import com.rs.common.messages.SaveFileCommand;
@@ -9,8 +12,7 @@ import com.rs.common.model.FileDescriptor;
 import com.rs.common.model.FilePart;
 
 import java.io.RandomAccessFile;
-import java.sql.SQLOutput;
-import java.util.Arrays;
+import java.nio.file.Path;
 
 import static com.rs.common.messages.ResponseCode.*;
 
@@ -40,28 +42,55 @@ public class Worker extends Thread {
             int count;
             long position = 0;
             while ((count = file.read(filePart.getBytes())) != -1) {
-//            if (fileDescriptor.getSize() > position + DefaultConfig.FILE_CHANK_SIZE) {
-//                length = DefaultConfig.FILE_CHANK_SIZE;
-//            } else {
-//                length = fileDescriptor.getSize() - position;
-//            }
                 filePart.setStartPos(position);
                 filePart.setLength(count);
                 filePart.setDigest();
                 position += count;
                 file.seek(position);
-                //System.out.println(count);
-                //System.out.println(Arrays.toString(filePart.getBytes()));
                 Response response;
                 do {
                     networkClient.invoke(saveFileCommand);
                     response = networkClient.getResponse();
                     System.out.printf("%%%.2f\n", position * 100.0 / fileDescriptor.getSize());
                 } while (response.getResponseCode() == FILE_CORRUPTED);
-                if (response.getResponseCode() != OK) {
+                if (response.getResponseCode().isError()) {
                     throw new Exception(response.getResponseCode().getMessage());
                 }
             }
         }
     }
+
+    public static void downloadFile(FileDescriptor fileDescriptor) throws Exception {
+        if (networkClient == null) {
+            throw new Exception("Необходимо залогиниться");
+        }
+        Response response;
+        TempFile tempFile = TempFile.getInstance(DefaultConfig.CLIENT_ROOT_PATH, fileDescriptor.getPath(), fileDescriptor.getName());
+        try {
+            GetFileCommand getFileCommand = new GetFileCommand(fileDescriptor);
+            getFileCommand.setLength(DefaultConfig.FILE_CHANK_SIZE);
+            long position = 0;
+            while (true) {
+                getFileCommand.setStartPos(position);
+                do {
+                    networkClient.invoke(getFileCommand);
+                    response = networkClient.getResponse();
+                    //System.out.printf("%%%.2f\n", position * 100.0 / 100);
+                } while (response.getFilePart().damaged());
+                if (response.getResponseCode().isError()) {
+                    throw new Exception(response.getResponseCode().getMessage());
+                }
+                if (response.getFilePart().getLength() > 0) {
+                    tempFile.seek(position);
+                    tempFile.write(response.getFilePart().getBytes(), 0, response.getFilePart().getLength());
+                }
+                position += response.getFilePart().getLength();
+                if (response.getResponseCode() == COMPLETE) break;
+            }
+            tempFile.moveToTarget();
+        } finally {
+            tempFile.close();
+        }
+    }
+
 }

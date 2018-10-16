@@ -27,4 +27,17 @@ public class MainFormController {
         }
     }
 
+    public void handleDownloadFileAction(ActionEvent actionEvent) {
+        try {
+            String fileName = "assa3.mkv";
+            String path = "temp";
+            FileDescriptor fileDescriptor = new FileDescriptor();
+            fileDescriptor.setName(fileName);
+            fileDescriptor.setPath(path);
+            Worker.downloadFile(fileDescriptor);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
 }

@@ -53,7 +53,7 @@
                         <Insets left="3.0" right="3.0" />
                     </GridPane.margin>
                 </Button>
-                <Button maxWidth="1.7976931348623157E308" mnemonicParsing="false" text="Скачать" GridPane.columnIndex="1" GridPane.halignment="CENTER" GridPane.hgrow="ALWAYS" GridPane.rowIndex="0" HBox.hgrow="ALWAYS">
+                <Button maxWidth="1.7976931348623157E308" mnemonicParsing="false" text="Скачать" GridPane.columnIndex="1" GridPane.halignment="CENTER" GridPane.hgrow="ALWAYS" GridPane.rowIndex="0" HBox.hgrow="ALWAYS" onAction="#handleDownloadFileAction">
                     <GridPane.margin>
                         <Insets left="3.0" right="3.0" />
                     </GridPane.margin>

@@ -3,6 +3,7 @@ package com.rs.common.model;
 
 import com.rs.common.DefaultConfig;
 
+import java.io.RandomAccessFile;
 import java.io.Serializable;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -65,4 +66,9 @@ public class FilePart implements Serializable {
             return null;
         }
     }
+
+    public void fill(RandomAccessFile file) {
+
+    }
+
 }
