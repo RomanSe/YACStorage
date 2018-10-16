@@ -9,8 +9,8 @@ public enum ResponseCode {
     INVALID_LOGIN("Неверный логин или пароль"),
     OK("", false),
     CANNOT_SAVE_FILE("Невозможно сохранить файл"),
-    FILE_CORRUPTED("Файл поврежден");
-
+    FILE_CORRUPTED("Файл поврежден"),
+    BUSY("Сервер занят");
 
     public String getMessage() {
         return message;

@@ -8,6 +8,10 @@ import java.util.ArrayList;
 
 public class Response implements Serializable {
     private static final long serialVersionUID = -8700849836502485019L;
+
+    private Response() {
+    }
+
     private ResponseCode responseCode;
 
     public String getErrorDescription() {
@@ -47,4 +51,7 @@ public class Response implements Serializable {
     private ArrayList<FileDescriptor> fileDescriptorList;
     private FilePart filePart;
 
+    public static Response getInstance() {
+        return new Response();
+    }
 }
