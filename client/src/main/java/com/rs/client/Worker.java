@@ -2,7 +2,6 @@ package com.rs.client;
 
 import com.rs.client.network.NetworkClient;
 import com.rs.common.DefaultConfig;
-import com.rs.common.FileUtilities;
 import com.rs.common.TempFile;
 import com.rs.common.messages.GetFileCommand;
 import com.rs.common.messages.LoginCommand;
@@ -12,7 +11,6 @@ import com.rs.common.model.FileDescriptor;
 import com.rs.common.model.FilePart;
 
 import java.io.RandomAccessFile;
-import java.nio.file.Path;
 
 import static com.rs.common.messages.ResponseCode.*;
 
