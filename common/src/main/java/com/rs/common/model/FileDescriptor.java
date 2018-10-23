@@ -73,5 +73,13 @@ public class FileDescriptor implements Serializable {
         return Objects.hash(name, path);
     }
 
-
+    @Override
+    public String toString() {
+        return "FileDescriptor{" +
+                "name='" + name + '\'' +
+                ", path='" + path + '\'' +
+                ", size=" + size +
+                ", isDirectory=" + isDirectory +
+                '}';
+    }
 }

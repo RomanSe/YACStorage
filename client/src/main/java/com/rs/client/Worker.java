@@ -3,10 +3,7 @@ package com.rs.client;
 import com.rs.client.network.NetworkClient;
 import com.rs.common.DefaultConfig;
 import com.rs.common.TempFile;
-import com.rs.common.messages.GetFileCommand;
-import com.rs.common.messages.LoginCommand;
-import com.rs.common.messages.Response;
-import com.rs.common.messages.SaveFileCommand;
+import com.rs.common.messages.*;
 import com.rs.common.model.FileDescriptor;
 import com.rs.common.model.FilePart;
 
@@ -16,13 +13,9 @@ import static com.rs.common.messages.ResponseCode.*;
 
 //TODO вынести в отдельный поток
 public class Worker extends Thread {
-    private static NetworkClient networkClient;
 
     public static void login(String user, String password) throws Exception {
-        if (networkClient == null) {
-            networkClient = new NetworkClient(DefaultConfig.HOST, DefaultConfig.PORT);
-            networkClient.start();
-        }
+        NetworkClient networkClient = NetworkClient.getInstance();
         networkClient.invoke(new LoginCommand(user, password));
         Response response = networkClient.getResponse();
         if (response.getResponseCode() != OK) {
@@ -31,9 +24,7 @@ public class Worker extends Thread {
     }
 
     public static void saveFile(FileDescriptor fileDescriptor) throws Exception {
-        if (networkClient == null) {
-            throw new Exception("Необходимо залогиниться");
-        }
+        NetworkClient networkClient = NetworkClient.getInstance();
         try (RandomAccessFile file = new RandomAccessFile(fileDescriptor.getAbsolutePath().toFile(), "r")) {
             FilePart filePart = new FilePart();
             SaveFileCommand saveFileCommand = new SaveFileCommand(fileDescriptor, filePart);
@@ -59,9 +50,7 @@ public class Worker extends Thread {
     }
 
     public static void downloadFile(FileDescriptor fileDescriptor) throws Exception {
-        if (networkClient == null) {
-            throw new Exception("Необходимо залогиниться");
-        }
+        NetworkClient networkClient = NetworkClient.getInstance();
         Response response;
         TempFile tempFile = TempFile.getInstance(DefaultConfig.CLIENT_ROOT_PATH, fileDescriptor.getPath(), fileDescriptor.getName());
         try {
@@ -91,4 +80,35 @@ public class Worker extends Thread {
         }
     }
 
+    public static void moveFile(FileDescriptor fileDescriptor, FileDescriptor newFileDescriptor) throws Exception {
+        NetworkClient networkClient = NetworkClient.getInstance();
+        networkClient.invoke(new MoveCommand(fileDescriptor, newFileDescriptor));
+        Response response = networkClient.getResponse();
+        if (response.getResponseCode() != OK) {
+            throw new Exception(response.getResponseCode().getMessage() + "\n" + response.getErrorDescription());
+        }
+    }
+
+    public static void getDirectory(FileDescriptor fileDescriptor)  throws Exception {
+        NetworkClient networkClient = NetworkClient.getInstance();
+        networkClient.invoke(new GetDirectoryCommand(fileDescriptor));
+        Response response = networkClient.getResponse();
+        if (response.getResponseCode() != OK) {
+            throw new Exception(response.getResponseCode().getMessage() + "\n" + response.getErrorDescription());
+        } else {
+            //для отладки
+            for (FileDescriptor fDescriptor: response.getFileDescriptorList()) {
+                System.out.println(fDescriptor);
+            }
+        }
+    }
+
+    public static void deleteFile(FileDescriptor fileDescriptor) throws Exception {
+        NetworkClient networkClient = NetworkClient.getInstance();
+        networkClient.invoke(new DeleteFileCommand(fileDescriptor));
+        Response response = networkClient.getResponse();
+        if (response.getResponseCode() != OK) {
+            throw new Exception(response.getResponseCode().getMessage() + "\n" + response.getErrorDescription());
+        }
+    }
 }

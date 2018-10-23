@@ -11,7 +11,8 @@ public enum ResponseCode {
     CANNOT_SAVE_FILE("Невозможно сохранить файл"),
     FILE_CORRUPTED("Файл поврежден"),
     BUSY("Сервер занят"),
-    COMPLETE("Передача закончена",false);
+    COMPLETE("Передача закончена",false),
+    CANNOT_DELETE_FILE("Нельзя удалить файл");
 
     public String getMessage() {
         return message;
