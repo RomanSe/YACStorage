@@ -1,6 +1,5 @@
 package com.rs.server;
 
-import com.rs.common.messages.Command;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.ChannelFuture;
 import io.netty.channel.ChannelInitializer;
@@ -32,7 +31,7 @@ public class YACStorageServer {
         queue  = new LinkedBlockingQueue<>();
         pool = Executors.newFixedThreadPool(DefaultConfig.POOL);
         for (int i = 0; i < DefaultConfig.POOL; i++) {
-            pool.execute(new CommandProcessor(queue));
+            pool.execute(new JobHandler(queue));
         }
         EventLoopGroup serverGroup  = new NioEventLoopGroup();
         EventLoopGroup workerGroup  = new NioEventLoopGroup();

@@ -16,6 +16,7 @@ import com.rs.common.DefaultConfig;
 import java.util.concurrent.ArrayBlockingQueue;
 
 public class NetworkClient extends Thread{
+    private static NetworkClient networkClient;
     private static final int MAX_OBJ_SIZE = 1024 * 1024 * 100; // TODO вынести в properties
     private int port;
     private String host;
@@ -25,7 +26,15 @@ public class NetworkClient extends Thread{
     private Channel channel;
     private boolean running;
 
-    public NetworkClient(String host, int port) {
+    public static NetworkClient getInstance() {
+        if (networkClient == null) {
+            networkClient = new NetworkClient(DefaultConfig.HOST, DefaultConfig.PORT);
+            networkClient.start();
+        }
+        return networkClient;
+    }
+
+    private NetworkClient(String host, int port) {
         this.port = port;
         this.host = host;
     }

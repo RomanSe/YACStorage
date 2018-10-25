@@ -1,4 +1,7 @@
-package com.rs.common;
+package com.rs.server;
+
+import com.rs.common.DefaultConfig;
+import com.rs.common.TempFile;
 
 public class Context {
     private String login;

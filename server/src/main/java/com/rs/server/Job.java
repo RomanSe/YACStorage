@@ -1,7 +1,6 @@
 package com.rs.server;
 
-import com.rs.common.Context;
-import com.rs.common.messages.Command;
+import com.rs.common.messages.*;
 import io.netty.channel.socket.SocketChannel;
 
 public class Job {
@@ -38,6 +37,18 @@ public class Job {
     }
 
     public void execute() {
-        channel.writeAndFlush(command.process(context));
+        if (command instanceof GetFileCommand)
+            channel.writeAndFlush(CommandProcessor.process((GetFileCommand) command, context));
+        else if (command instanceof SaveFileCommand)
+            channel.writeAndFlush(CommandProcessor.process((SaveFileCommand) command, context));
+        else if (command instanceof LoginCommand)
+            channel.writeAndFlush(CommandProcessor.process((LoginCommand) command, context));
+        else if (command instanceof MoveCommand)
+            channel.writeAndFlush(CommandProcessor.process((MoveCommand) command, context));
+        else if (command instanceof GetDirectoryCommand)
+            channel.writeAndFlush(CommandProcessor.process((GetDirectoryCommand) command, context));
+        else if (command instanceof DeleteFileCommand)
+            channel.writeAndFlush(CommandProcessor.process((DeleteFileCommand) command, context));
+
     }
 }
