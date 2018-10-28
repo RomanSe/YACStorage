@@ -68,7 +68,7 @@ public class CommandProcessor {
             responseCode = ALREADY_LOGGED_IN;
         } else {
             //TODO добавить проверку пароля и логина
-            if (login.equals("user")) {
+            if (login.equals("User")) {
                 context.setLogin(login);
                 context.setRootPath(Paths.get(DefaultConfig.SERVER_ROOT_PATH, login).toString());
                 responseCode = OK;

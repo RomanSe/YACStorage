@@ -2,12 +2,16 @@ package com.rs.server;
 
 import com.rs.common.DefaultConfig;
 import com.rs.common.TempFile;
+import com.rs.server.db.User;
 
 public class Context {
-    private String login;
-    private String rootPath;
-    private TempFile tempFile;
-    private byte[] buffer;
+    public User getUser() {
+        return user;
+    }
+
+    public void setUser(User user) {
+        this.user = user;
+    }
 
     public byte[] getBuffer() {
         if (buffer == null)
@@ -29,19 +33,17 @@ public class Context {
         this.rootPath = rootPath;
     }
 
-    public String getLogin() {
-        return login;
-    }
-
-    public void setLogin(String login) {
-        this.login = login;
-    }
-
     public String getRootPath() {
         return rootPath;
     }
 
     public boolean isAuthorized() {
-        return login != null;
+        return user != null;
     }
+
+    private User user;
+    private String rootPath;
+    private TempFile tempFile;
+    private byte[] buffer;
+
 }
