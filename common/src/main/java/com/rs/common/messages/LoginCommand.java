@@ -10,7 +10,7 @@ public class LoginCommand extends Command {
     private String login;
     private String passwordHash;
 
-    public LoginCommand(String login, String password) throws NoSuchAlgorithmException {
+    public LoginCommand(String login, String password) {
         this.login = login;
         this.passwordHash = generateHash(password);
     }
@@ -27,11 +27,16 @@ public class LoginCommand extends Command {
         return passwordHash;
     }
 
-    private String generateHash(String password) throws NoSuchAlgorithmException {
-        MessageDigest md = MessageDigest.getInstance("SHA-256");
-        md.update(password.getBytes());
-        byte[] digest = md.digest();
-        return DatatypeConverter.printBase64Binary(digest);
+    private String generateHash(String password) {
+        try {
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
+            md.update(password.getBytes());
+            byte[] digest = md.digest();
+            return DatatypeConverter.printBase64Binary(digest);
+        } catch (NoSuchAlgorithmException e) {
+            e.printStackTrace();
+        }
+        return null;
     }
 
 }

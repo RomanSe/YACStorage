@@ -4,6 +4,8 @@ import com.rs.common.DefaultConfig;
 import com.rs.common.TempFile;
 import com.rs.server.db.User;
 
+import java.nio.file.Path;
+
 public class Context {
     public User getUser() {
         return user;
@@ -29,12 +31,12 @@ public class Context {
     }
 
 
-    public void setRootPath(String rootPath) {
-        this.rootPath = rootPath;
+    public Path getRootPath() {
+        return rootPath;
     }
 
-    public String getRootPath() {
-        return rootPath;
+    public void setRootPath(Path rootPath) {
+        this.rootPath = rootPath;
     }
 
     public boolean isAuthorized() {
@@ -42,7 +44,7 @@ public class Context {
     }
 
     private User user;
-    private String rootPath;
+    private Path rootPath;
     private TempFile tempFile;
     private byte[] buffer;
 

@@ -10,7 +10,7 @@
 <?import javafx.scene.layout.HBox?>
 <?import javafx.scene.layout.RowConstraints?>
 
-<GridPane fx:id="registerForm" alignment="center" hgap="10" vgap="10" xmlns="http://javafx.com/javafx/8.0.172-ea" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.rs.client.RegisterController">
+<GridPane fx:id="form" alignment="center" hgap="10" vgap="10" xmlns="http://javafx.com/javafx/8.0.172-ea" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.rs.client.RegisterController">
     <Label text="User Name:" GridPane.columnIndex="0" GridPane.rowIndex="1" />
 
     <TextField fx:id="loginField" GridPane.columnIndex="1" GridPane.rowIndex="1" />
@@ -24,7 +24,7 @@
     <TextField fx:id="email" GridPane.columnIndex="1" GridPane.rowIndex="3" />
 
     <HBox alignment="bottom_right" spacing="10" GridPane.columnIndex="1" GridPane.rowIndex="4">
-        <Button fx:id="signInButton" onAction="#handleSubmitSignInButton" text="SignIn" />
+        <Button fx:id="button" onAction="#handleSubmitButton" text="SignIn" />
     </HBox>
     <Label fx:id="errorMsg" text="" textAlignment="CENTER" textFill="#f81f07" visible="false" wrapText="true" GridPane.columnSpan="2147483647" GridPane.rowIndex="5">
       <padding>

@@ -11,7 +11,6 @@ import org.apache.log4j.Logger;
 
 import java.io.IOException;
 import java.io.RandomAccessFile;
-import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -71,7 +70,7 @@ public class CommandProcessor {
             if (!User.exists(login)) {
                 User user = User.create(login, command.getPasswordHash(), command.getEmail());
                 context.setUser(user);
-                context.setRootPath(Paths.get(DefaultConfig.SERVER_ROOT_PATH, login).toString());
+                context.setRootPath(Paths.get(DefaultConfig.SERVER_ROOT_PATH, login));
                 responseCode = OK;
             } else {
                 responseCode = ResponseCode.LOGIN_IS_BUSY;
@@ -94,7 +93,7 @@ public class CommandProcessor {
         try {
             if (User.authenticated(login, passwordHash)) {
                 context.setUser(User.get(login));
-                context.setRootPath(Paths.get(DefaultConfig.SERVER_ROOT_PATH, login).toString());
+                context.setRootPath(Paths.get(DefaultConfig.SERVER_ROOT_PATH, login));
                 responseCode = OK;
             } else {
                 responseCode = INVALID_LOGIN;
@@ -143,7 +142,7 @@ public class CommandProcessor {
                 response.setResponseCode(OK);
             }
         } catch (IOException e) {
-            e.printStackTrace();
+            logger.error(e.getLocalizedMessage());
             response.setResponseCode(CANNOT_SAVE_FILE);
             response.setErrorDescription(e.getLocalizedMessage());
             return response;
@@ -162,7 +161,8 @@ public class CommandProcessor {
             Files.move(filePath, newFilePath);
             response.setResponseCode(OK);
         } catch (IOException e) {
-            response.setResponseCode(CANNOT_DELETE_FILE);
+            logger.error(e.getLocalizedMessage());
+            response.setResponseCode(ERROR);
             response.setErrorDescription(e.getLocalizedMessage());
         }
         return response;
@@ -177,23 +177,11 @@ public class CommandProcessor {
             response.setResponseCode(ResponseCode.DIRECTORY_NOT_FOUND);
             return response;
         }
-        ArrayList<FileDescriptor> filesList = new ArrayList<>();
+        ArrayList<FileDescriptor> filesList;
         try {
-            DirectoryStream<Path> stream = Files.newDirectoryStream(directoryPath);
-            for (Path path : stream) {
-                FileDescriptor fileDescriptor = new FileDescriptor();
-                fileDescriptor.setName(path.getFileName().toString());
-                fileDescriptor.setPath(Paths.get(context.getRootPath()).relativize(path.getParent()).toString());
-                if (Files.isDirectory(path)) {
-                    fileDescriptor.setDirectory(true);
-                } else {
-                    fileDescriptor.setDirectory(false);
-                    fileDescriptor.setSize(Files.size(path));
-                }
-                filesList.add(fileDescriptor);
-            }
+            filesList = FileUtilities.getRelativeDirectoryList(directoryPath, context.getRootPath());
         } catch (IOException e) {
-            response.setResponseCode(CANNOT_DELETE_FILE);
+            response.setResponseCode(ERROR);
             response.setErrorDescription(e.getLocalizedMessage());
             return response;
         }
@@ -211,7 +199,7 @@ public class CommandProcessor {
             Files.delete(filePath);
             response.setResponseCode(OK);
         } catch (IOException e) {
-            response.setResponseCode(CANNOT_DELETE_FILE);
+            response.setResponseCode(ERROR);
             response.setErrorDescription(e.getMessage());
         }
         return response;

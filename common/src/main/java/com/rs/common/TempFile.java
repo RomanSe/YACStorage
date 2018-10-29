@@ -20,7 +20,7 @@ public class TempFile extends RandomAccessFile {
         super(file, mode);
     }
 
-    public static TempFile getInstance(String rootPath, String path, String name) throws IOException {
+    public static TempFile getInstance(Path rootPath, String path, String name) throws IOException {
         Path tempFilePath = FileUtilities.getFilePath(rootPath, path, name + DefaultConfig.PART_FILE_EXT);
         if (!Files.exists(tempFilePath)) {
             System.out.println("create " + tempFilePath.getParent());

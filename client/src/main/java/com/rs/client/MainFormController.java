@@ -1,15 +1,33 @@
 package com.rs.client;
 
 import com.rs.common.DefaultConfig;
+import com.rs.common.FileUtilities;
 import com.rs.common.model.FileDescriptor;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
+import javafx.fxml.Initializable;
+import javafx.scene.control.TableColumn;
+import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
+import javafx.scene.control.cell.PropertyValueFactory;
+import org.apache.log4j.Logger;
 
 import java.io.File;
+import java.io.IOException;
+import java.net.URL;
+import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ResourceBundle;
 
-public class MainFormController {
+public class MainFormController implements Initializable {
+    Logger logger = Logger.getRootLogger();
+    private ObservableList<FileDescriptor> localFilesList = FXCollections.observableArrayList();
+    private ObservableList<FileDescriptor> remoteFilesList = FXCollections.observableArrayList();
+    private FileDescriptor currentDirectory = new FileDescriptor();
+    private Path rootPath = Paths.get(DefaultConfig.CLIENT_ROOT_PATH);
+
     @FXML
     TextField path1;
 
@@ -22,6 +40,11 @@ public class MainFormController {
     @FXML
     TextField fileName2;
 
+    @FXML
+    TableView<FileDescriptor> localFilesTable;
+
+    @FXML
+    TableView<FileDescriptor> remoteFilesTable;
 
     //test
     public void handleSaveFileAction(ActionEvent actionEvent) {
@@ -97,4 +120,33 @@ public class MainFormController {
         }
     }
 
+    @Override
+    public void initialize(URL location, ResourceBundle resources) {
+        updateLocalFileList();
+        tableInit(localFilesTable);
+        localFilesTable.setItems(localFilesList);
+
+        tableInit(remoteFilesTable);
+        remoteFilesTable.setItems(remoteFilesList);
+    }
+
+    private void tableInit(TableView<FileDescriptor> table) {
+        TableColumn<FileDescriptor, String> tcName = (TableColumn<FileDescriptor, String>) table.getColumns().get(1);
+        tcName.setCellValueFactory(new PropertyValueFactory<FileDescriptor, String>("name"));
+        TableColumn<FileDescriptor, String> tcSize = (TableColumn<FileDescriptor, String>) table.getColumns().get(2);
+        tcSize.setCellValueFactory(new PropertyValueFactory<FileDescriptor, String>("size"));
+        TableColumn<FileDescriptor, String> tcDirectory = (TableColumn<FileDescriptor, String>) table.getColumns().get(0);
+        tcDirectory.setCellValueFactory(new PropertyValueFactory<FileDescriptor, String>("d"));
+    }
+
+    private void updateLocalFileList() {
+        Path localPath = FileUtilities.getFilePath(DefaultConfig.CLIENT_ROOT_PATH, currentDirectory.getPath(), currentDirectory.getName());
+        try {
+            localFilesList.clear();
+            localFilesList.addAll(FileUtilities.getRelativeDirectoryList(localPath, rootPath));
+        } catch (IOException e) {
+            logger.error(e.getLocalizedMessage());
+        }
+    }
 }
+

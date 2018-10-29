@@ -12,11 +12,7 @@ class LoginCommandTest {
 
     @BeforeEach
     void before() {
-        try {
-            loginCommand =  new LoginCommand("login1", "hello world!");
-        } catch (NoSuchAlgorithmException e) {
-            e.printStackTrace();
-        }
+        loginCommand = new LoginCommand("login1", "hello world!");
     }
 
     @Test
@@ -32,6 +28,6 @@ class LoginCommandTest {
 
     @Test
     void getPasswordHash() {
-        assertEquals( "dQnlvaDHYtK6x/kNdYtbImP6Acy8VCq1498WO+CObKk=", loginCommand.getPasswordHash());
+        assertEquals("dQnlvaDHYtK6x/kNdYtbImP6Acy8VCq1498WO+CObKk=", loginCommand.getPasswordHash());
     }
 }

@@ -1,5 +1,7 @@
 package com.rs.common.model;
 
+import javafx.scene.Scene;
+
 import java.io.IOException;
 import java.io.Serializable;
 import java.nio.file.Path;
@@ -9,11 +11,19 @@ import java.util.Objects;
 //все есть файл
 public class FileDescriptor implements Serializable {
     private static final long serialVersionUID = 571710974311506623L;
-    private String name;
-    private String path;
+    private String name = "";
+    private String path = "";
     private long size;
     private boolean isDirectory;
     private transient Path absolutePath;
+    private String d;
+
+    public String getD() {
+        return isDirectory?"D":" ";
+    }
+
+    public void setD(String d) {
+    }
 
     public Path getAbsolutePath() {
         return absolutePath;

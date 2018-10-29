@@ -11,7 +11,7 @@ public class SignInCommand extends LoginCommand {
         return email;
     }
 
-    public SignInCommand(String login, String password, String email) throws NoSuchAlgorithmException {
+    public SignInCommand(String login, String password, String email) {
         super(login, password);
         this.email = email;
     }

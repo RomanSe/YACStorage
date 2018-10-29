@@ -5,9 +5,10 @@ import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.stage.Stage;
+import org.apache.log4j.PropertyConfigurator;
+
 
 public class Main extends Application {
-
     static final int WIDTH = 600;
     static final int HEIGHT = 550;
     static Stage primaryStage;
@@ -23,7 +24,13 @@ public class Main extends Application {
         primaryStage.show();
     }
 
+    public static void configureLogger() {
+        String nameFile = "log4j.xml";
+        PropertyConfigurator.configure(nameFile);
+    }
+
     public static void main(String[] args) {
+        configureLogger();
         launch(args);
     }
 }
