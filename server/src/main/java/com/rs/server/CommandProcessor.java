@@ -6,6 +6,8 @@ import com.rs.common.TempFile;
 import com.rs.common.messages.*;
 import com.rs.common.model.FileDescriptor;
 import com.rs.common.model.FilePart;
+import com.rs.server.db.User;
+import org.apache.log4j.Logger;
 
 import java.io.IOException;
 import java.io.RandomAccessFile;
@@ -18,6 +20,7 @@ import java.util.ArrayList;
 import static com.rs.common.messages.ResponseCode.*;
 
 public class CommandProcessor {
+    private static Logger logger = Logger.getRootLogger();
 
     //GetFileCommand
     public static Response process(GetFileCommand command, Context context) {
@@ -52,29 +55,54 @@ public class CommandProcessor {
             response.setFilePart(filePart);
             file.close();
         } catch (IOException e) {
-            e.printStackTrace();
+            logger.error(e.getLocalizedMessage());
             response.setResponseCode(CANNOT_SAVE_FILE);
             response.setErrorDescription(e.getLocalizedMessage());
         }
         return response;
     }
 
-    //LoginCommand
-    public static Response process(LoginCommand command, Context context) {
-        String login = command.getLogin();
+    //SignInCommand
+    public static Response process(SignInCommand command, Context context) {
         Response response = Response.getInstance();
         ResponseCode responseCode;
-        if (context.getLogin() != null) {
-            responseCode = ALREADY_LOGGED_IN;
-        } else {
-            //TODO добавить проверку пароля и логина
-            if (login.equals("User")) {
-                context.setLogin(login);
+        String login = command.getLogin();
+        try {
+            if (!User.exists(login)) {
+                User user = User.create(login, command.getPasswordHash(), command.getEmail());
+                context.setUser(user);
+                context.setRootPath(Paths.get(DefaultConfig.SERVER_ROOT_PATH, login).toString());
+                responseCode = OK;
+            } else {
+                responseCode = ResponseCode.LOGIN_IS_BUSY;
+            }
+        } catch (Exception e){
+            logger.error(e.getLocalizedMessage());
+            responseCode = ERROR;
+            response.setErrorDescription(e.getLocalizedMessage());
+        }
+        response.setResponseCode(responseCode);
+        return response;
+    }
+
+    //LoginCommand
+    public static Response process(LoginCommand command, Context context) {
+        Response response = Response.getInstance();
+        ResponseCode responseCode;
+        String login = command.getLogin();
+        String passwordHash = command.getPasswordHash();
+        try {
+            if (User.authenticated(login, passwordHash)) {
+                context.setUser(User.get(login));
                 context.setRootPath(Paths.get(DefaultConfig.SERVER_ROOT_PATH, login).toString());
                 responseCode = OK;
             } else {
                 responseCode = INVALID_LOGIN;
             }
+        } catch (Exception e){
+            logger.error(e.getLocalizedMessage());
+            responseCode = ERROR;
+            response.setErrorDescription(e.getLocalizedMessage());
         }
         response.setResponseCode(responseCode);
         return response;
@@ -152,7 +180,7 @@ public class CommandProcessor {
         ArrayList<FileDescriptor> filesList = new ArrayList<>();
         try {
             DirectoryStream<Path> stream = Files.newDirectoryStream(directoryPath);
-            for (Path path: stream) {
+            for (Path path : stream) {
                 FileDescriptor fileDescriptor = new FileDescriptor();
                 fileDescriptor.setName(path.getFileName().toString());
                 fileDescriptor.setPath(Paths.get(context.getRootPath()).relativize(path.getParent()).toString());

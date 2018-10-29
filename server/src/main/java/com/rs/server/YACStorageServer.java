@@ -12,11 +12,14 @@ import io.netty.handler.codec.serialization.ClassResolvers;
 import io.netty.handler.codec.serialization.ObjectDecoder;
 import io.netty.handler.codec.serialization.ObjectEncoder;
 import com.rs.common.DefaultConfig;
+import org.apache.log4j.Logger;
+import org.apache.log4j.PropertyConfigurator;
 
 import java.util.concurrent.*;
 
 
 public class YACStorageServer {
+    private static Logger logger;
     //TODO add ssl
 
     private int port;
@@ -24,6 +27,7 @@ public class YACStorageServer {
     private BlockingQueue<Job> queue;
 
     public YACStorageServer(int port) {
+        setLogger();
         this.port = port;
     }
 
@@ -60,6 +64,12 @@ public class YACStorageServer {
             serverGroup.shutdownGracefully();
             workerGroup.shutdownGracefully();
         };
+    }
+
+    public static void setLogger() {
+        String nameFile = "log4j.xml";
+        PropertyConfigurator.configure(nameFile);
+        logger = Logger.getRootLogger();
     }
 
     public static void main(String[] args) throws Exception {

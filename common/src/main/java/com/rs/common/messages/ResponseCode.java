@@ -12,7 +12,10 @@ public enum ResponseCode {
     FILE_CORRUPTED("Файл поврежден"),
     BUSY("Сервер занят"),
     COMPLETE("Передача закончена",false),
-    CANNOT_DELETE_FILE("Нельзя удалить файл");
+    CANNOT_DELETE_FILE("Нельзя удалить файл"),
+    ERROR("Системная ошибка"),
+    LOGIN_IS_BUSY("Логин занят");
+
 
     public String getMessage() {
         return message;

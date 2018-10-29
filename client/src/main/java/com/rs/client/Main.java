@@ -8,19 +8,15 @@ import javafx.stage.Stage;
 
 public class Main extends Application {
 
-    private static final int WIDTH = 600;
-    private static final int HEIGHT = 550;
-    static Scene loginForm;
-    static Scene mainForm;
+    static final int WIDTH = 600;
+    static final int HEIGHT = 550;
     static Stage primaryStage;
 
     @Override
     public void start(Stage primaryStage) throws Exception{
         this.primaryStage = primaryStage;
         Parent loginNode = FXMLLoader.load(getClass().getResource("/loginForm.fxml"));
-        loginForm = new Scene(loginNode, WIDTH, HEIGHT);
-        Parent mainNode = FXMLLoader.load(getClass().getResource("/mainForm.fxml"));
-        mainForm = new Scene(mainNode, WIDTH, HEIGHT);
+        Scene loginForm = new Scene(loginNode, WIDTH, HEIGHT);
 
         primaryStage.setTitle("YACStorage");
         primaryStage.setScene(loginForm);

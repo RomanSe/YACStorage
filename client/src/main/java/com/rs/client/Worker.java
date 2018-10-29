@@ -14,9 +14,19 @@ import static com.rs.common.messages.ResponseCode.*;
 //TODO вынести в отдельный поток
 public class Worker extends Thread {
 
+
     public static void login(String user, String password) throws Exception {
         NetworkClient networkClient = NetworkClient.getInstance();
         networkClient.invoke(new LoginCommand(user, password));
+        Response response = networkClient.getResponse();
+        if (response.getResponseCode() != OK) {
+            throw new Exception(response.getResponseCode().getMessage());
+        }
+    }
+
+    public static void signIn(String user, String password, String email) throws Exception {
+        NetworkClient networkClient = NetworkClient.getInstance();
+        networkClient.invoke(new SignInCommand(user, password, email));
         Response response = networkClient.getResponse();
         if (response.getResponseCode() != OK) {
             throw new Exception(response.getResponseCode().getMessage());
@@ -111,4 +121,6 @@ public class Worker extends Thread {
             throw new Exception(response.getResponseCode().getMessage() + "\n" + response.getErrorDescription());
         }
     }
+
+
 }

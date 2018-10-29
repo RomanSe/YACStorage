@@ -28,10 +28,6 @@ public class Job {
         free = true;
     }
 
-    public Command getCommand() {
-        return command;
-    }
-
     public void setCommand(Command command) {
         this.command = command;
     }
@@ -41,6 +37,8 @@ public class Job {
             channel.writeAndFlush(CommandProcessor.process((GetFileCommand) command, context));
         else if (command instanceof SaveFileCommand)
             channel.writeAndFlush(CommandProcessor.process((SaveFileCommand) command, context));
+        else if (command instanceof SignInCommand)
+            channel.writeAndFlush(CommandProcessor.process((SignInCommand) command, context));
         else if (command instanceof LoginCommand)
             channel.writeAndFlush(CommandProcessor.process((LoginCommand) command, context));
         else if (command instanceof MoveCommand)
@@ -49,6 +47,6 @@ public class Job {
             channel.writeAndFlush(CommandProcessor.process((GetDirectoryCommand) command, context));
         else if (command instanceof DeleteFileCommand)
             channel.writeAndFlush(CommandProcessor.process((DeleteFileCommand) command, context));
-
     }
+
 }

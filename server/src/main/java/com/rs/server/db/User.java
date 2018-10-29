@@ -1,10 +1,13 @@
 package com.rs.server.db;
 
+import org.apache.log4j.Logger;
+
 import java.sql.*;
 import java.time.LocalDateTime;
 
 public class User {
-    private static String tableName;
+    static Logger logger = Logger.getRootLogger();
+    private static final String tableName = "Users";
 
     public String getLogin() {
         return login;
@@ -56,8 +59,9 @@ public class User {
         try {
             connection = DB.connect();
             statement = connection.createStatement();
-            ResultSet rs = statement.executeQuery(String.format("SELECT count(*) FROM sqlite_master WHERE type='table' AND name=%s", tableName));
+            ResultSet rs = statement.executeQuery(String.format("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='%s'", tableName));
             if (rs.getInt(1) == 0) {
+                logger.info("Table " + tableName + " was created");
                 statement.executeUpdate(String.format("CREATE TABLE %s (id INTEGER PRIMARY KEY, login TEXT UNIQUE NOT NULL, passwordHash TEXT NOT NULL, registerDate TEXT, state INTEGER NOT NULL, email TEXT)", tableName));
             }
         } catch (SQLException e) {
@@ -92,7 +96,7 @@ public class User {
     public static boolean authenticated(String login, String passwordHash) {
         try {
             User user;
-            if ((((user = get(login))) != null && (user.passwordHash == passwordHash) && (user.state == UserState.ACTIVE))) {
+            if ((((user = get(login))) != null && (user.passwordHash.equals(passwordHash)) && (user.state == UserState.ACTIVE))) {
                 return true;
             }
         } catch (SQLException e) {
@@ -111,12 +115,13 @@ public class User {
         return false;
     }
 
-    public static User create(String login, String passwordHash) throws SQLException {
-        PreparedStatement statement = connection.prepareStatement("INSERT INTO " + tableName + " (login, passwordHash, registerDate, state) VALUES (?,?,?,?)");
+    public static User create(String login, String passwordHash, String email) throws SQLException {
+        PreparedStatement statement = connection.prepareStatement("INSERT INTO " + tableName + " (login, passwordHash, registerDate, state, email) VALUES (?,?,?,?,?)");
         statement.setString(1, login);
         statement.setString(2, passwordHash);
         statement.setString(3, LocalDateTime.now().toString());
         statement.setInt(4, UserState.ACTIVE.ordinal());
+        statement.setString(5, email);
         statement.executeUpdate();
         return get(login);
     }
