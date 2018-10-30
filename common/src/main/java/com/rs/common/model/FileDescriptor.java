@@ -1,22 +1,38 @@
 package com.rs.common.model;
 
-import javafx.scene.Scene;
+import com.rs.common.FileUtilities;
 
-import java.io.IOException;
 import java.io.Serializable;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Objects;
 
 //все есть файл
-public class FileDescriptor implements Serializable {
+public class FileDescriptor implements Serializable  {
     private static final long serialVersionUID = 571710974311506623L;
     private String name = "";
-    private String path = "";
+    private String relativePath = "";
+    private transient String root = "";
     private long size;
     private boolean isDirectory;
-    private transient Path absolutePath;
     private String d;
+
+    public FileDescriptor() {
+
+    }
+
+
+    public String getRoot() {
+        return root;
+    }
+
+    public void setRoot(String root) {
+        this.root = root;
+    }
+
+    public void setRoot(Path root) {
+        this.root = root.toString();
+    }
 
     public String getD() {
         return isDirectory?"D":" ";
@@ -26,14 +42,20 @@ public class FileDescriptor implements Serializable {
     }
 
     public Path getAbsolutePath() {
-        return absolutePath;
+        return FileUtilities.getFilePath(root, relativePath, name);
     }
 
-    public void setAbsolutePath(Path absolutePath) {
-        this.absolutePath = absolutePath;
+    public void setAbsolutePath(Path path) {
+        setName(path.getFileName().toString());
+        if (root.equals(""))
+            setRelativePath(path.getParent().toString());
+        else
+            setRelativePath(Paths.get(root).relativize(path.getParent()).toString());
     }
 
-
+    public FileDescriptor(Path root) {
+        setRoot(root);
+    }
 
     public boolean isDirectory() {
         return isDirectory;
@@ -51,12 +73,12 @@ public class FileDescriptor implements Serializable {
         this.name = name;
     }
 
-    public String getPath() {
-        return path;
+    public String getRelativePath() {
+        return relativePath;
     }
 
-    public void setPath(String path) {
-        this.path = path;
+    public void setRelativePath(String relativePath) {
+        this.relativePath = relativePath;
     }
 
     public long getSize() {
@@ -67,27 +89,25 @@ public class FileDescriptor implements Serializable {
         this.size = size;
     }
 
-    public String getRelativePath() {return Paths.get(path, name).toString();}
-
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         FileDescriptor that = (FileDescriptor) o;
         return Objects.equals(name, that.name) &&
-                Objects.equals(path, that.path);
+                Objects.equals(relativePath, that.relativePath);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(name, path);
+        return Objects.hash(name, relativePath);
     }
 
     @Override
     public String toString() {
         return "FileDescriptor{" +
                 "name='" + name + '\'' +
-                ", path='" + path + '\'' +
+                ", relativePath='" + relativePath + '\'' +
                 ", size=" + size +
                 ", isDirectory=" + isDirectory +
                 '}';

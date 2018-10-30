@@ -2,7 +2,6 @@ package com.rs.client.tasks;
 
 import com.rs.client.network.NetworkClient;
 import com.rs.common.messages.Command;
-import com.rs.common.messages.LoginCommand;
 import com.rs.common.messages.Response;
 import javafx.concurrent.Task;
 import org.apache.log4j.Logger;
@@ -10,7 +9,7 @@ import org.apache.log4j.Logger;
 import static com.rs.common.messages.ResponseCode.OK;
 
 //Login and register
-public class SimpleTask extends Task<Boolean> {
+public class SimpleTask extends Task<Response> {
     static Logger logger = Logger.getRootLogger();
 
     private final Command command;
@@ -20,7 +19,7 @@ public class SimpleTask extends Task<Boolean> {
     }
 
     @Override
-    protected Boolean call() throws Exception {
+    protected Response call() throws Exception {
         NetworkClient networkClient = NetworkClient.getInstance();
         networkClient.invoke(command);
         Response response = networkClient.getResponse();
@@ -28,6 +27,6 @@ public class SimpleTask extends Task<Boolean> {
             logger.info(response.getResponseCode().getMessage());
             throw new Exception(response.getResponseCode().getMessage());
         }
-        return null;
+        return response;
     }
 }

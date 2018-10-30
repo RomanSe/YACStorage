@@ -34,7 +34,7 @@ public class CommandProcessor {
         }
         System.out.println(fileDescriptor.getName() + " " + startPos);
         try {
-            Path targetFilePath = FileUtilities.getFilePath(context.getRootPath(), fileDescriptor.getPath(), fileDescriptor.getName());
+            Path targetFilePath = FileUtilities.getFilePath(context.getRootPath(), fileDescriptor.getRelativePath(), fileDescriptor.getName());
             if (!Files.exists(targetFilePath)) {
                 response.setResponseCode(FILE_NOT_FOUND);
                 return response;
@@ -118,7 +118,7 @@ public class CommandProcessor {
         }
         try {
             TempFile tempFile = context.getTempFile();
-            Path targetFilePath = FileUtilities.getFilePath(context.getRootPath(), fileDescriptor.getPath(), fileDescriptor.getName());
+            Path targetFilePath = FileUtilities.getFilePath(context.getRootPath(), fileDescriptor.getRelativePath(), fileDescriptor.getName());
             if (tempFile != null && !tempFile.getTargetPath().equals(targetFilePath)) {
                 System.out.println("Remove " + tempFile.getTempFilePath());
                 tempFile.close();
@@ -126,7 +126,7 @@ public class CommandProcessor {
                 tempFile = null;
             }
             if (tempFile == null) {
-                tempFile = TempFile.getInstance(context.getRootPath(), fileDescriptor.getPath(), fileDescriptor.getName());
+                tempFile = TempFile.getInstance(context.getRootPath(), fileDescriptor.getRelativePath(), fileDescriptor.getName());
                 context.setTempFile(tempFile);
             }
             if (filePart.damaged()) {
@@ -155,8 +155,8 @@ public class CommandProcessor {
         FileDescriptor fileDescriptor = command.getFileDescriptor();
         FileDescriptor newFileDescriptor = command.getNewFileDescriptor();
         Response response = Response.getInstance();
-        Path filePath = FileUtilities.getFilePath(context.getRootPath(), fileDescriptor.getPath(), fileDescriptor.getName());
-        Path newFilePath = FileUtilities.getFilePath(context.getRootPath(), newFileDescriptor.getPath(), newFileDescriptor.getName());
+        Path filePath = FileUtilities.getFilePath(context.getRootPath(), fileDescriptor.getRelativePath(), fileDescriptor.getName());
+        Path newFilePath = FileUtilities.getFilePath(context.getRootPath(), newFileDescriptor.getRelativePath(), newFileDescriptor.getName());
         try {
             Files.move(filePath, newFilePath);
             response.setResponseCode(OK);
@@ -172,7 +172,7 @@ public class CommandProcessor {
     public static Response process(GetDirectoryCommand command, Context context) {
         FileDescriptor directoryDescriptor = command.getFileDescriptor();
         Response response = Response.getInstance();
-        Path directoryPath = FileUtilities.getFilePath(context.getRootPath(), directoryDescriptor.getPath(), directoryDescriptor.getName());
+        Path directoryPath = FileUtilities.getFilePath(context.getRootPath(), directoryDescriptor.getRelativePath(), directoryDescriptor.getName());
         if (!Files.isDirectory(directoryPath)) {
             response.setResponseCode(ResponseCode.DIRECTORY_NOT_FOUND);
             return response;
@@ -194,7 +194,7 @@ public class CommandProcessor {
     public static Response process(DeleteFileCommand command, Context context) {
         FileDescriptor fileDescriptor = command.getFileDescriptor();
         Response response = Response.getInstance();
-        Path filePath = FileUtilities.getFilePath(context.getRootPath(), fileDescriptor.getPath(), fileDescriptor.getName());
+        Path filePath = FileUtilities.getFilePath(context.getRootPath(), fileDescriptor.getRelativePath(), fileDescriptor.getName());
         try {
             Files.delete(filePath);
             response.setResponseCode(OK);

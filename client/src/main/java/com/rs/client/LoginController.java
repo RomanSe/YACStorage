@@ -3,6 +3,7 @@ package com.rs.client;
 import com.rs.client.tasks.SimpleTask;
 import com.rs.common.messages.Command;
 import com.rs.common.messages.LoginCommand;
+import com.rs.common.messages.Response;
 import javafx.concurrent.Task;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
@@ -40,7 +41,7 @@ public class LoginController {
         errorMsg.setText("");
         errorMsg.setVisible(false);
         button.setDisable(true);
-        Task<Boolean> task = new SimpleTask(getCommand());
+        Task<Response> task = new SimpleTask(getCommand());
         task.setOnSucceeded(evt -> {
             Parent mainNode = null;
             try {

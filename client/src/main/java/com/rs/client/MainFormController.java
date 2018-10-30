@@ -1,13 +1,17 @@
 package com.rs.client;
 
+import com.rs.client.tasks.GetDirectoryTask;
 import com.rs.common.DefaultConfig;
 import com.rs.common.FileUtilities;
+import com.rs.common.messages.Response;
 import com.rs.common.model.FileDescriptor;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
+import javafx.concurrent.Task;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
+import javafx.scene.control.Label;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
@@ -23,10 +27,11 @@ import java.util.ResourceBundle;
 
 public class MainFormController implements Initializable {
     Logger logger = Logger.getRootLogger();
+
     private ObservableList<FileDescriptor> localFilesList = FXCollections.observableArrayList();
     private ObservableList<FileDescriptor> remoteFilesList = FXCollections.observableArrayList();
-    private FileDescriptor currentDirectory = new FileDescriptor();
-    private Path rootPath = Paths.get(DefaultConfig.CLIENT_ROOT_PATH);
+    private FileDescriptor localDirectory = new FileDescriptor();
+    private FileDescriptor remoteDirectory = new FileDescriptor();
 
     @FXML
     TextField path1;
@@ -46,6 +51,9 @@ public class MainFormController implements Initializable {
     @FXML
     TableView<FileDescriptor> remoteFilesTable;
 
+    @FXML
+    Label errorMsg;
+
     //test
     public void handleSaveFileAction(ActionEvent actionEvent) {
         try {
@@ -53,7 +61,7 @@ public class MainFormController implements Initializable {
             String path = path1.getText();
             FileDescriptor fileDescriptor = new FileDescriptor();
             fileDescriptor.setName(fileName);
-            fileDescriptor.setPath(path);
+            fileDescriptor.setRelativePath(path);
             fileDescriptor.setAbsolutePath(Paths.get(DefaultConfig.CLIENT_ROOT_PATH, path, fileName));
             File file = fileDescriptor.getAbsolutePath().toFile();
             fileDescriptor.setSize(file.length());
@@ -69,7 +77,7 @@ public class MainFormController implements Initializable {
             String path = path1.getText();
             FileDescriptor fileDescriptor = new FileDescriptor();
             fileDescriptor.setName(fileName);
-            fileDescriptor.setPath(path);
+            fileDescriptor.setRelativePath(path);
             Worker.downloadFile(fileDescriptor);
         } catch (Exception e) {
             e.printStackTrace();
@@ -84,28 +92,17 @@ public class MainFormController implements Initializable {
             String newPath = path2.getText();
             FileDescriptor fileDescriptor = new FileDescriptor();
             fileDescriptor.setName(fileName);
-            fileDescriptor.setPath(path);
+            fileDescriptor.setRelativePath(path);
             FileDescriptor newFileDescriptor = new FileDescriptor();
             newFileDescriptor.setName(newFileName);
-            newFileDescriptor.setPath(newPath);
+            newFileDescriptor.setRelativePath(newPath);
             Worker.moveFile(fileDescriptor, newFileDescriptor);
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
-    public void handleGetDirectoryAction(ActionEvent actionEvent) {
-        try {
-            String fileName = fileName1.getText();
-            String path = path1.getText();
-            FileDescriptor fileDescriptor = new FileDescriptor();
-            fileDescriptor.setName(fileName);
-            fileDescriptor.setPath(path);
-            Worker.getDirectory(fileDescriptor);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
+
 
     public void handleDeleteAction(ActionEvent actionEvent) {
         try {
@@ -113,7 +110,7 @@ public class MainFormController implements Initializable {
             String path = path1.getText();
             FileDescriptor fileDescriptor = new FileDescriptor();
             fileDescriptor.setName(fileName);
-            fileDescriptor.setPath(path);
+            fileDescriptor.setRelativePath(path);
             Worker.deleteFile(fileDescriptor);
         } catch (Exception e) {
             e.printStackTrace();
@@ -122,12 +119,13 @@ public class MainFormController implements Initializable {
 
     @Override
     public void initialize(URL location, ResourceBundle resources) {
-        updateLocalFileList();
+        localDirectory.setAbsolutePath(Paths.get(DefaultConfig.CLIENT_ROOT_PATH));
         tableInit(localFilesTable);
         localFilesTable.setItems(localFilesList);
-
         tableInit(remoteFilesTable);
         remoteFilesTable.setItems(remoteFilesList);
+        updateLocalFileList();
+        updateRemoteFileList();
     }
 
     private void tableInit(TableView<FileDescriptor> table) {
@@ -140,13 +138,29 @@ public class MainFormController implements Initializable {
     }
 
     private void updateLocalFileList() {
-        Path localPath = FileUtilities.getFilePath(DefaultConfig.CLIENT_ROOT_PATH, currentDirectory.getPath(), currentDirectory.getName());
+        Path localPath = localDirectory.getAbsolutePath();
         try {
             localFilesList.clear();
-            localFilesList.addAll(FileUtilities.getRelativeDirectoryList(localPath, rootPath));
+            localFilesList.addAll(FileUtilities.getRelativeDirectoryList(localDirectory.getAbsolutePath(), Paths.get("")));
         } catch (IOException e) {
             logger.error(e.getLocalizedMessage());
         }
+    }
+
+    public void updateRemoteFileList() {
+        errorMsg.setText("");
+        errorMsg.setVisible(false);
+        Task<Response> task = new GetDirectoryTask(remoteDirectory, remoteFilesList);
+        task.setOnSucceeded(evt -> {
+            errorMsg.setText("");
+        });
+        task.setOnFailed(evt -> {
+            if (task.getException() instanceof Exception) {
+                errorMsg.setText(task.getException().getLocalizedMessage());
+                errorMsg.setVisible(true);
+            }
+        });
+        new Thread(task).start();
     }
 }
 

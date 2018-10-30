@@ -24,9 +24,8 @@ public class FileUtilities {
         ArrayList<FileDescriptor> filesList = new ArrayList<>();
         DirectoryStream<Path> stream = Files.newDirectoryStream(directoryPath);
         for (Path path : stream) {
-            FileDescriptor fileDescriptor = new FileDescriptor();
-            fileDescriptor.setName(path.getFileName().toString());
-            fileDescriptor.setPath(rootPath.relativize(path.getParent()).toString());
+            FileDescriptor fileDescriptor = new FileDescriptor(rootPath);
+            fileDescriptor.setAbsolutePath(path);
             if (Files.isDirectory(path)) {
                 fileDescriptor.setDirectory(true);
             } else {
