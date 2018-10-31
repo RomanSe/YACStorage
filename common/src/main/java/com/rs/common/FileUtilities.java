@@ -1,7 +1,9 @@
 package com.rs.common;
 
 import com.rs.common.model.FileDescriptor;
+import javafx.scene.Parent;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
@@ -11,12 +13,12 @@ import java.util.ArrayList;
 
 public class FileUtilities {
     public static Path getFilePath(Path rootPath, String path, String name) {
-        Path p = Paths.get(rootPath.toString(), path).normalize(); //TODO сделать проверку на безопасность пути
+        Path p = Paths.get(rootPath.toString(), path).normalize();
         return Paths.get(p.toString(), name).toAbsolutePath();
     }
 
     public static Path getFilePath(String rootPath, String path, String name) {
-        Path p = Paths.get(rootPath, path).normalize(); //TODO сделать проверку на безопасность пути
+        Path p = Paths.get(rootPath, path).normalize();
         return Paths.get(p.toString(), name).toAbsolutePath();
     }
 
@@ -35,5 +37,14 @@ public class FileUtilities {
             filesList.add(fileDescriptor);
         }
         return filesList;
+    }
+
+    public static FileDescriptor getUpDirectory(FileDescriptor currentDir) {
+        FileDescriptor upDirectory;
+        upDirectory = new FileDescriptor(currentDir.getRoot());
+        upDirectory.setRelativePath(currentDir.getRelativePath());
+        upDirectory.setName("");
+        upDirectory.setDirectory(true);
+        return upDirectory;
     }
 }

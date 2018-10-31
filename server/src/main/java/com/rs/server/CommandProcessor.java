@@ -171,8 +171,10 @@ public class CommandProcessor {
     //GetDirectoryCommand
     public static Response process(GetDirectoryCommand command, Context context) {
         FileDescriptor directoryDescriptor = command.getFileDescriptor();
+        logger.debug(directoryDescriptor.toString());
         Response response = Response.getInstance();
         Path directoryPath = FileUtilities.getFilePath(context.getRootPath(), directoryDescriptor.getRelativePath(), directoryDescriptor.getName());
+        logger.debug(directoryPath);
         if (!Files.isDirectory(directoryPath)) {
             response.setResponseCode(ResponseCode.DIRECTORY_NOT_FOUND);
             return response;
