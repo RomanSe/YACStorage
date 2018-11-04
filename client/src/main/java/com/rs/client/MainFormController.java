@@ -13,7 +13,10 @@ import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import javafx.scene.input.*;
+import javafx.scene.layout.HBox;
 import org.apache.log4j.Logger;
 
 import java.io.File;
@@ -26,10 +29,14 @@ import java.util.ResourceBundle;
 public class MainFormController implements Initializable {
     Logger logger = Logger.getRootLogger();
 
+    private final double ROW_HEIGHT = 20.0;
+
     private ObservableList<FileDescriptor> localFilesList = FXCollections.observableArrayList();
     private ObservableList<FileDescriptor> remoteFilesList = FXCollections.observableArrayList();
     private FileDescriptor localDirectory = new FileDescriptor();
     private FileDescriptor remoteDirectory = new FileDescriptor();
+
+    private Image dirImage = new Image(getClass().getResource("/folder.jpg").toString());
 
     @FXML
     TextField path1;
@@ -93,7 +100,6 @@ public class MainFormController implements Initializable {
 
     private void doRemoteEnter() {
         FileDescriptor fileDescriptor = remoteFilesTable.getSelectionModel().getSelectedItem();
-        logger.debug(fileDescriptor.getPath());
         if (fileDescriptor != null && fileDescriptor.isDirectory()) {
             remoteDirectory = fileDescriptor;
             updateRemoteFileList();
@@ -156,19 +162,6 @@ public class MainFormController implements Initializable {
         }
     }
 
-    @Override
-    public void initialize(URL location, ResourceBundle resources) {
-        localDirectory.setAbsolutePath(Paths.get(DefaultConfig.CLIENT_ROOT_PATH));
-        tableInit(localFilesTable);
-        localFilesTable.setItems(localFilesList);
-        tableInit(remoteFilesTable);
-        remoteFilesTable.setItems(remoteFilesList);
-        updateLocalFileList();
-        updateRemoteFileList();
-    }
-
-    private static final DataFormat SERIALIZED_MIME_TYPE = new DataFormat("application/x-java-serialized-object");
-
 
     private void updateLocalFileList() {
         try {
@@ -196,65 +189,119 @@ public class MainFormController implements Initializable {
         new Thread(task).start();
     }
 
+
+    @Override
+    public void initialize(URL location, ResourceBundle resources) {
+//        dirImage= new HBox();
+//        ImageView imageView = new ImageView();
+//        imageView.setImage(new Image(getClass().getResource("/folder.jpg").toString()));
+//        imageView.setFitHeight(30);
+//        imageView.setPreserveRatio(true);
+//        dirImage.getChildren().addAll(imageView);
+
+        localDirectory.setAbsolutePath(Paths.get(DefaultConfig.CLIENT_ROOT_PATH));
+        tableInit(localFilesTable);
+        localFilesTable.setItems(localFilesList);
+        tableInit(remoteFilesTable);
+        remoteFilesTable.setItems(remoteFilesList);
+        updateLocalFileList();
+        updateRemoteFileList();
+    }
+
+    private static final DataFormat SERIALIZED_MIME_TYPE = new DataFormat("application/x-java-serialized-object");
+
     private void tableInit(TableView<FileDescriptor> table) {
 
         TableColumn<FileDescriptor, String> tcName = (TableColumn<FileDescriptor, String>) table.getColumns().get(1);
         tcName.setCellValueFactory(new PropertyValueFactory<FileDescriptor, String>("name"));
-        TableColumn<FileDescriptor, String> tcSize = (TableColumn<FileDescriptor, String>) table.getColumns().get(2);
-        tcSize.setCellValueFactory(new PropertyValueFactory<FileDescriptor, String>("size"));
+        TableColumn<FileDescriptor, Long> tcSize = (TableColumn<FileDescriptor, Long>) table.getColumns().get(2);
+        tcSize.setCellValueFactory(new PropertyValueFactory<FileDescriptor, Long>("size"));
+        tcSize.setCellFactory(column -> new TableCell<FileDescriptor, Long>() {
+            @Override
+            protected void updateItem(Long item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null || item.equals("0")) {
+                    setText(null);
+                    setStyle("");
+                } else {
+                    setText(ControllerHelper.formatSize(item.toString()));
+                }
+            }
+        });
         TableColumn<FileDescriptor, Boolean> tcDirectory = (TableColumn<FileDescriptor, Boolean>) table.getColumns().get(0);
-        tcDirectory.setCellValueFactory(new PropertyValueFactory<FileDescriptor, Boolean>("isDirectory"));
-
-        table.setRowFactory(tv -> {
-            TableRow<FileDescriptor> row = new TableRow<>();
-
-            row.setOnDragDetected(event -> {
-                if (!row.isEmpty()) {
-                    FileDescriptor descriptor = row.getItem();
-                    Dragboard db = row.startDragAndDrop(TransferMode.COPY);
-                    db.setDragView(row.snapshot(null, null));
-                    ClipboardContent cc = new ClipboardContent();
-                    cc.put(SERIALIZED_MIME_TYPE, descriptor);
-                    db.setContent(cc);
-                    event.consume();
+        tcDirectory.setCellValueFactory(new PropertyValueFactory<FileDescriptor, Boolean>("directory"));
+        tcDirectory.setCellFactory(column -> new TableCell<FileDescriptor, Boolean>() {
+            @Override
+            protected void updateItem(Boolean item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setText(null);
+                    setStyle("");
+                    setGraphic(null);
+                } else {
+                    if (item) {
+                        HBox dirImageBox = new HBox();
+                        ImageView imageView = new ImageView();
+                        imageView.setImage(dirImage);
+                        imageView.setFitHeight(ROW_HEIGHT);
+                        imageView.setPreserveRatio(true);
+                        dirImageBox.getChildren().addAll(imageView);
+                        setGraphic(dirImageBox);
+                    }
                 }
-            });
+            }
+        });
 
-            row.setOnDragOver(event -> {
-                Dragboard db = event.getDragboard();
-                if (db.hasContent(SERIALIZED_MIME_TYPE)) {
-                    //if (row.getTableView() != ((FileDescriptor) db.getContent(SERIALIZED_MIME_TYPE));) {
-                    System.out.println("bingo!");
-                    event.acceptTransferModes(TransferMode.COPY_OR_MOVE);
-                    event.consume();
-                    //}
-                }
-            });
-
-            row.setOnDragDropped(event -> {
-                Dragboard db = event.getDragboard();
-//                if (db.hasContent(SERIALIZED_MIME_TYPE)) {
-//                    int draggedIndex = (Integer) db.getContent(SERIALIZED_MIME_TYPE);
-//                    Person draggedPerson = tableView.getItems().remove(draggedIndex);
+//        table.setRowFactory(tv -> {
+//            TableRow<FileDescriptor> row = new TableRow<>();
 //
-//                    int dropIndex;
-//
-//                    if (row.isEmpty()) {
-//                        dropIndex = tableView.getItems().size();
-//                    } else {
-//                        dropIndex = row.getIndex();
-//                    }
-//
-//                    tableView.getItems().add(dropIndex, draggedPerson);
-//
-//                    event.setDropCompleted(true);
-//                    tableView.getSelectionModel().select(dropIndex);
+//            row.setOnDragDetected(event -> {
+//                if (!row.isEmpty()) {
+//                    FileDescriptor descriptor = row.getItem();
+//                    Dragboard db = row.startDragAndDrop(TransferMode.COPY);
+//                    db.setDragView(row.snapshot(null, null));
+//                    ClipboardContent cc = new ClipboardContent();
+//                    cc.put(SERIALIZED_MIME_TYPE, descriptor);
+//                    db.setContent(cc);
 //                    event.consume();
 //                }
-            });
-
-            return row;
-        });
+//            });
+//
+//            row.setOnDragOver(event -> {
+//                Dragboard db = event.getDragboard();
+//                if (db.hasContent(SERIALIZED_MIME_TYPE)) {
+//                    //if (row.getTableView() != ((FileDescriptor) db.getContent(SERIALIZED_MIME_TYPE));) {
+//                    System.out.println("bingo!");
+//                    event.acceptTransferModes(TransferMode.COPY_OR_MOVE);
+//                    event.consume();
+//                    //}
+//                }
+//            });
+//
+//            row.setOnDragDropped(event -> {
+//                Dragboard db = event.getDragboard();
+////                if (db.hasContent(SERIALIZED_MIME_TYPE)) {
+////                    int draggedIndex = (Integer) db.getContent(SERIALIZED_MIME_TYPE);
+////                    Person draggedPerson = tableView.getItems().remove(draggedIndex);
+////
+////                    int dropIndex;
+////
+////                    if (row.isEmpty()) {
+////                        dropIndex = tableView.getItems().size();
+////                    } else {
+////                        dropIndex = row.getIndex();
+////                    }
+////
+////                    tableView.getItems().add(dropIndex, draggedPerson);
+////
+////                    event.setDropCompleted(true);
+////                    tableView.getSelectionModel().select(dropIndex);
+////                    event.consume();
+////                }
+//            });
+//
+//            return row;
+//        });
     }
 
 }

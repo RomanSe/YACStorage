@@ -14,7 +14,7 @@ public class FileDescriptor implements Serializable {
     private String path = "";
     private transient String root = "";
     private Long size;
-    private boolean isDirectory;
+    private boolean directory;
     private boolean isUp;
 
     public boolean isUp() {
@@ -67,11 +67,11 @@ public class FileDescriptor implements Serializable {
     }
 
     public boolean isDirectory() {
-        return isDirectory;
+        return directory;
     }
 
     public void setDirectory(boolean directory) {
-        isDirectory = directory;
+        this.directory = directory;
     }
 
     public String getName() {
@@ -129,7 +129,7 @@ public class FileDescriptor implements Serializable {
         return "FileDescriptor{" +
                 ", path='" + path + '\'' +
                 ", size=" + size +
-                ", isDirectory=" + isDirectory +
+                ", isDirectory=" + directory +
                 '}';
     }
 
