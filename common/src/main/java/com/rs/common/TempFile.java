@@ -21,7 +21,7 @@ public class TempFile extends RandomAccessFile {
     }
 
     public static TempFile getInstance(Path rootPath, String path, String name) throws IOException {
-        Path tempFilePath = FileUtilities.getFilePath(rootPath, path, name + DefaultConfig.PART_FILE_EXT);
+        Path tempFilePath = FileUtilities.getFilePath(rootPath, FileUtilities.changeFileName(path, name + DefaultConfig.PART_FILE_EXT));
         if (!Files.exists(tempFilePath)) {
             System.out.println("create " + tempFilePath.getParent());
             try {
@@ -32,7 +32,7 @@ public class TempFile extends RandomAccessFile {
         }
         Files.deleteIfExists(tempFilePath);
         TempFile t = new TempFile(tempFilePath.toFile(), "rw");
-        t.targetPath = FileUtilities.getFilePath(rootPath, path, name);
+        t.targetPath = FileUtilities.getFilePath(rootPath, path);
         t.tempFilePath = tempFilePath;
         return t;
     }

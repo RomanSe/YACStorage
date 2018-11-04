@@ -44,7 +44,7 @@ public class Worker {
     public static void downloadFile(FileDescriptor fileDescriptor) throws Exception {
         NetworkClient networkClient = NetworkClient.getInstance();
         Response response;
-        TempFile tempFile = TempFile.getInstance(Paths.get(DefaultConfig.CLIENT_ROOT_PATH), fileDescriptor.getRelativePath(), fileDescriptor.getName());
+        TempFile tempFile = TempFile.getInstance(Paths.get(DefaultConfig.CLIENT_ROOT_PATH), fileDescriptor.getPath(), fileDescriptor.getName());
         try {
             GetFileCommand getFileCommand = new GetFileCommand(fileDescriptor);
             getFileCommand.setLength(DefaultConfig.FILE_CHANK_SIZE);

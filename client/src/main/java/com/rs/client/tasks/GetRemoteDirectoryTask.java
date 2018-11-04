@@ -13,8 +13,6 @@ import org.apache.log4j.Logger;
 import static com.rs.common.messages.ResponseCode.OK;
 
 public class GetRemoteDirectoryTask extends Task<Response> {
-    Logger logger = Logger.getRootLogger();
-
     private FileDescriptor fileDescriptor;
     private ObservableList<FileDescriptor> list;
 
@@ -34,10 +32,7 @@ public class GetRemoteDirectoryTask extends Task<Response> {
         Platform.runLater(new Runnable() {
             @Override
             public void run() {
-                list.clear();
-                list.add(FileUtilities.getUpDirectory(fileDescriptor));
-                if (!response.getFileDescriptorList().isEmpty())
-                    list.addAll(response.getFileDescriptorList());
+                list.setAll(response.getFileDescriptorList());
             }
         });
         return response;

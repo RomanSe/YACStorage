@@ -19,8 +19,8 @@ import org.apache.log4j.Logger;
 import java.io.File;
 import java.io.IOException;
 import java.net.URL;
-import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.ResourceBundle;
 
 public class MainFormController implements Initializable {
@@ -55,38 +55,57 @@ public class MainFormController implements Initializable {
     public void handleOnLocalTableClick(MouseEvent mouseEvent) {
         if (mouseEvent.getButton().equals(MouseButton.PRIMARY)) {
             if (mouseEvent.getClickCount() == 2) {
-                FileDescriptor fileDescriptor = localFilesTable.getSelectionModel().getSelectedItem();
-                if (fileDescriptor.isDirectory()) {
-                    localDirectory.setAbsolutePath(fileDescriptor.getAbsolutePath());
-                    updateLocalFileList();
-                }
+                doLocalEnter();
             }
+        }
+    }
+
+    public void handleLocalTableKey(KeyEvent event) {
+        System.out.println(event.getCode());
+        if (event.getCode().equals(KeyCode.ENTER))
+        {
+            doLocalEnter();
+        }
+    }
+
+    private void doLocalEnter() {
+        FileDescriptor fileDescriptor = localFilesTable.getSelectionModel().getSelectedItem();
+        if (fileDescriptor.isDirectory() && !fileDescriptor.getPath().equals("")) {
+            localDirectory.setAbsolutePath(fileDescriptor.getAbsolutePath());
+            updateLocalFileList();
         }
     }
 
     public void handleOnRemoteTableClick(MouseEvent mouseEvent) {
         if (mouseEvent.getButton().equals(MouseButton.PRIMARY)) {
             if (mouseEvent.getClickCount() == 2) {
-                FileDescriptor fileDescriptor = remoteFilesTable.getSelectionModel().getSelectedItem();
-                if (fileDescriptor != null && fileDescriptor.isDirectory()) {
-                    System.out.println(fileDescriptor.getAbsolutePath());
-                    remoteDirectory = fileDescriptor;
-                    remoteDirectory.normalize();
-                    updateRemoteFileList();
-                }
+                doRemoteEnter();
             }
         }
     }
 
+    public void handleRemoteTableKey(KeyEvent event) {
+        if (event.getCode().equals(KeyCode.ENTER))
+        {
+            doRemoteEnter();
+        }
+    }
 
+    private void doRemoteEnter() {
+        FileDescriptor fileDescriptor = remoteFilesTable.getSelectionModel().getSelectedItem();
+        logger.debug(fileDescriptor.getPath());
+        if (fileDescriptor != null && fileDescriptor.isDirectory()) {
+            remoteDirectory = fileDescriptor;
+            updateRemoteFileList();
+        }
+    }
     //test
     public void handleSaveFileAction(ActionEvent actionEvent) {
         try {
             String fileName = fileName1.getText();
             String path = path1.getText();
             FileDescriptor fileDescriptor = new FileDescriptor();
-            fileDescriptor.setName(fileName);
-            fileDescriptor.setRelativePath(path);
+            fileDescriptor.setPath(path);
             fileDescriptor.setAbsolutePath(Paths.get(DefaultConfig.CLIENT_ROOT_PATH, path, fileName));
             File file = fileDescriptor.getAbsolutePath().toFile();
             fileDescriptor.setSize(file.length());
@@ -101,8 +120,7 @@ public class MainFormController implements Initializable {
             String fileName = fileName1.getText();
             String path = path1.getText();
             FileDescriptor fileDescriptor = new FileDescriptor();
-            fileDescriptor.setName(fileName);
-            fileDescriptor.setRelativePath(path);
+            fileDescriptor.setPath(path);
             Worker.downloadFile(fileDescriptor);
         } catch (Exception e) {
             e.printStackTrace();
@@ -116,11 +134,9 @@ public class MainFormController implements Initializable {
             String newFileName = fileName2.getText();
             String newPath = path2.getText();
             FileDescriptor fileDescriptor = new FileDescriptor();
-            fileDescriptor.setName(fileName);
-            fileDescriptor.setRelativePath(path);
+            fileDescriptor.setPath(path);
             FileDescriptor newFileDescriptor = new FileDescriptor();
-            newFileDescriptor.setName(newFileName);
-            newFileDescriptor.setRelativePath(newPath);
+            newFileDescriptor.setPath(newPath);
             Worker.moveFile(fileDescriptor, newFileDescriptor);
         } catch (Exception e) {
             e.printStackTrace();
@@ -133,8 +149,7 @@ public class MainFormController implements Initializable {
             String fileName = fileName1.getText();
             String path = path1.getText();
             FileDescriptor fileDescriptor = new FileDescriptor();
-            fileDescriptor.setName(fileName);
-            fileDescriptor.setRelativePath(path);
+            fileDescriptor.setPath(path);
             Worker.deleteFile(fileDescriptor);
         } catch (Exception e) {
             e.printStackTrace();
@@ -156,11 +171,10 @@ public class MainFormController implements Initializable {
 
 
     private void updateLocalFileList() {
-        Path localPath = localDirectory.getAbsolutePath();
         try {
-            localFilesList.clear();
-
-            localFilesList.addAll(FileUtilities.getRelativeDirectoryList(localDirectory.getAbsolutePath(), Paths.get("")));
+            System.out.println(localDirectory);
+            ArrayList<FileDescriptor> list = FileUtilities.getRelativeDirectoryList(localDirectory);
+            localFilesList.setAll(list);
         } catch (IOException e) {
             logger.error(e.getLocalizedMessage());
         }
@@ -188,8 +202,8 @@ public class MainFormController implements Initializable {
         tcName.setCellValueFactory(new PropertyValueFactory<FileDescriptor, String>("name"));
         TableColumn<FileDescriptor, String> tcSize = (TableColumn<FileDescriptor, String>) table.getColumns().get(2);
         tcSize.setCellValueFactory(new PropertyValueFactory<FileDescriptor, String>("size"));
-        TableColumn<FileDescriptor, String> tcDirectory = (TableColumn<FileDescriptor, String>) table.getColumns().get(0);
-        tcDirectory.setCellValueFactory(new PropertyValueFactory<FileDescriptor, String>("d"));
+        TableColumn<FileDescriptor, Boolean> tcDirectory = (TableColumn<FileDescriptor, Boolean>) table.getColumns().get(0);
+        tcDirectory.setCellValueFactory(new PropertyValueFactory<FileDescriptor, Boolean>("isDirectory"));
 
         table.setRowFactory(tv -> {
             TableRow<FileDescriptor> row = new TableRow<>();
@@ -210,9 +224,9 @@ public class MainFormController implements Initializable {
                 Dragboard db = event.getDragboard();
                 if (db.hasContent(SERIALIZED_MIME_TYPE)) {
                     //if (row.getTableView() != ((FileDescriptor) db.getContent(SERIALIZED_MIME_TYPE));) {
-                        System.out.println("bingo!");
-                        event.acceptTransferModes(TransferMode.COPY_OR_MOVE);
-                        event.consume();
+                    System.out.println("bingo!");
+                    event.acceptTransferModes(TransferMode.COPY_OR_MOVE);
+                    event.consume();
                     //}
                 }
             });

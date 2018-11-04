@@ -46,7 +46,7 @@ public class LoginController {
             Parent mainNode = null;
             try {
                 mainNode = FXMLLoader.load(getClass().getResource("/mainForm.fxml"));
-                ((Stage) form.getScene().getWindow()).setScene(new Scene(mainNode, Main.WIDTH, Main.HEIGHT));
+                ((Stage) form.getScene().getWindow()).setScene(new Scene(mainNode, ClientMain.WIDTH, ClientMain.HEIGHT));
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -77,7 +77,7 @@ public class LoginController {
         errorMsg.setVisible(false);
         try {
             Parent registerNode = FXMLLoader.load(getClass().getResource("/registerForm.fxml"));
-            ((Stage) form.getScene().getWindow()).setScene(new Scene(registerNode, Main.WIDTH, Main.HEIGHT));
+            ((Stage) form.getScene().getWindow()).setScene(new Scene(registerNode, ClientMain.WIDTH, ClientMain.HEIGHT));
         } catch (IOException e) {
             e.printStackTrace();
         }

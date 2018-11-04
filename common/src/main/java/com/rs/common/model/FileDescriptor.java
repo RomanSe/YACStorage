@@ -2,6 +2,7 @@ package com.rs.common.model;
 
 import com.rs.common.FileUtilities;
 
+import java.io.File;
 import java.io.Serializable;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -10,16 +11,24 @@ import java.util.Objects;
 //все есть файл
 public class FileDescriptor implements Serializable {
     private static final long serialVersionUID = 571710974311506623L;
-    private String name = "";
-    private String relativePath = "";
+    private String path = "";
     private transient String root = "";
     private Long size;
     private boolean isDirectory;
-    private String d;
+    private boolean isUp;
+
+    public boolean isUp() {
+        return isUp;
+    }
+
+    public void setUp(boolean up) {
+        isUp = up;
+    }
+
+    private final String UP_SIGN = "...";
 
     public FileDescriptor() {
-        name = "";
-        relativePath = "";
+        path = "";
         root = "";
     }
 
@@ -35,27 +44,18 @@ public class FileDescriptor implements Serializable {
         this.root = root.toString();
     }
 
-    public String getD() {
-        return isDirectory ? "D" : " ";
-    }
-
-    public void setD(String d) {
-    }
-
     public Path getAbsolutePath() {
         if (root == null || root.equals(""))
-            return Paths.get(relativePath, name).normalize();
+            return Paths.get(path);
         else
-            return FileUtilities.getFilePath(root, relativePath, name);
+            return FileUtilities.getFilePath(root, path);
     }
 
     public void setAbsolutePath(Path path) {
-        setName(path.getFileName().toString());
         if (root == null || root.equals("")) {
-            if (path.getParent() != null)
-                setRelativePath(path.getParent().toString());
+            setPath(path);
         } else
-            setRelativePath(Paths.get(root).relativize(path.getParent()).toString());
+            setPath(Paths.get(root).relativize(path).toString());
     }
 
     public FileDescriptor(Path root) {
@@ -75,20 +75,33 @@ public class FileDescriptor implements Serializable {
     }
 
     public String getName() {
-        return name;
+        if (isUp)
+            return UP_SIGN;
+        else
+            return Paths.get(path).getFileName().toString();
     }
 
-    public void setName(String name) {
-        this.name = name;
+    public FileDescriptor getUpDirectory() {
+        FileDescriptor upDirectory;
+        upDirectory = new FileDescriptor(getRoot());
+        upDirectory.setPath(getParent());
+        upDirectory.setDirectory(true);
+        upDirectory.setUp(true);
+        return upDirectory;
     }
 
-    public String getRelativePath() {
-        return relativePath;
+    public String getPath() {
+        return path;
     }
 
-    public void setRelativePath(String relativePath) {
-        this.relativePath = relativePath;
+    public void setPath(String path) {
+        this.path = Paths.get(path).normalize().toString();
     }
+
+    public void setPath(Path path) {
+        this.path = path.toString();
+    }
+
 
     public Long getSize() {
         return size;
@@ -103,37 +116,30 @@ public class FileDescriptor implements Serializable {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         FileDescriptor that = (FileDescriptor) o;
-        return Objects.equals(name, that.name) &&
-                Objects.equals(relativePath, that.relativePath);
+        return Objects.equals(path, that.path);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(name, relativePath);
+        return Objects.hash(path);
     }
 
     @Override
     public String toString() {
         return "FileDescriptor{" +
-                "name='" + name + '\'' +
-                ", relativePath='" + relativePath + '\'' +
+                ", path='" + path + '\'' +
                 ", size=" + size +
                 ", isDirectory=" + isDirectory +
                 '}';
     }
 
-    public void normalize() {
-        if (root == null)
-            root = "";
-        if (relativePath == null)
-            relativePath = "";
-        if (name == null)
-            name = "";
-        if (!(root + relativePath + name).equals("")) {
-            name = Paths.get(root, relativePath, name).getFileName().toString();
-            if (!root.equals(""))
-                setRelativePath(Paths.get(root).relativize(Paths.get(root, relativePath, name).getParent()).toString());
+    public String getParent() {
+        if (!path.equals("")) {
+            Path parent = Paths.get(path).getParent();
+            if (parent != null) {
+                return parent.toString();
+            }
         }
-
+        return "";
     }
 }

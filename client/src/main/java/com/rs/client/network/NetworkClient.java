@@ -17,18 +17,17 @@ import java.util.concurrent.ArrayBlockingQueue;
 
 public class NetworkClient extends Thread{
     private static NetworkClient networkClient;
-    private static final int MAX_OBJ_SIZE = 1024 * 1024 * 100; // TODO вынести в properties
     private int port;
     private String host;
     private final ArrayBlockingQueue<Command> inbox = new ArrayBlockingQueue<>(DefaultConfig.NETWORK_QUEUE_SIZE);
     private final ArrayBlockingQueue<Response> outbox = new ArrayBlockingQueue<>(DefaultConfig.NETWORK_QUEUE_SIZE);
 
     private Channel channel;
-    private boolean running;
 
     public static NetworkClient getInstance() {
         if (networkClient == null) {
             networkClient = new NetworkClient(DefaultConfig.HOST, DefaultConfig.PORT);
+            networkClient.setDaemon(true);
             networkClient.start();
         }
         return networkClient;
@@ -61,8 +60,7 @@ public class NetworkClient extends Thread{
                 }
             });
             ChannelFuture channelFuture = bootstrap.connect(host, port).sync();
-            running = true;
-            while (running) {
+            while (!isInterrupted()) {
                 Command command = inbox.take();
                 channel.writeAndFlush(command);
             }
@@ -84,23 +82,22 @@ public class NetworkClient extends Thread{
 
 
 
-    //for testing
-    public static void main(String[] args) throws Exception {
-        int port = DefaultConfig.PORT;
-        String host = DefaultConfig.HOST;
-        if (args.length > 0) {
-            host = args[0];
-            if (args.length > 1) {
-                port = Integer.parseInt(args[1]);
-            }
-        }
-        NetworkClient networkClient = new NetworkClient(host, port);
-        networkClient.start();
-        networkClient.invoke(new LoginCommand("user", "123"));
-        Response response = networkClient.getResponse();
-        System.out.println(response.getResponseCode());
-
-    }
+//    public static void main(String[] args) throws Exception {
+//        int port = DefaultConfig.PORT;
+//        String host = DefaultConfig.HOST;
+//        if (args.length > 0) {
+//            host = args[0];
+//            if (args.length > 1) {
+//                port = Integer.parseInt(args[1]);
+//            }
+//        }
+//        NetworkClient networkClient = new NetworkClient(host, port);
+//        networkClient.start();
+//        networkClient.invoke(new LoginCommand("user", "123"));
+//        Response response = networkClient.getResponse();
+//        System.out.println(response.getResponseCode());
+//
+//    }
 
 
 }

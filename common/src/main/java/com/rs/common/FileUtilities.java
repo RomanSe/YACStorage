@@ -1,9 +1,7 @@
 package com.rs.common;
 
 import com.rs.common.model.FileDescriptor;
-import javafx.scene.Parent;
 
-import java.io.File;
 import java.io.IOException;
 import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
@@ -12,21 +10,21 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 
 public class FileUtilities {
-    public static Path getFilePath(Path rootPath, String path, String name) {
-        Path p = Paths.get(rootPath.toString(), path).normalize();
-        return Paths.get(p.toString(), name).toAbsolutePath();
+    public static Path getFilePath(Path rootPath, String path) {
+        return getFilePath(rootPath.toString(), path);
     }
 
-    public static Path getFilePath(String rootPath, String path, String name) {
+    public static Path getFilePath(String rootPath, String path) {
         Path p = Paths.get(rootPath, path).normalize();
-        return Paths.get(p.toString(), name).toAbsolutePath();
+        return p.toAbsolutePath();
     }
 
-    public static ArrayList<FileDescriptor> getRelativeDirectoryList(Path directoryPath, Path rootPath) throws IOException {
+    public static ArrayList<FileDescriptor> getRelativeDirectoryList(FileDescriptor dirDescriptor) throws IOException {
         ArrayList<FileDescriptor> filesList = new ArrayList<>();
-        DirectoryStream<Path> stream = Files.newDirectoryStream(directoryPath);
+        filesList.add(dirDescriptor.getUpDirectory());
+        DirectoryStream<Path> stream = Files.newDirectoryStream(dirDescriptor.getAbsolutePath());
         for (Path path : stream) {
-            FileDescriptor fileDescriptor = new FileDescriptor(rootPath);
+            FileDescriptor fileDescriptor = new FileDescriptor(dirDescriptor.getRoot());
             fileDescriptor.setAbsolutePath(path);
             if (Files.isDirectory(path)) {
                 fileDescriptor.setDirectory(true);
@@ -39,12 +37,13 @@ public class FileUtilities {
         return filesList;
     }
 
-    public static FileDescriptor getUpDirectory(FileDescriptor currentDir) {
-        FileDescriptor upDirectory;
-        upDirectory = new FileDescriptor(currentDir.getRoot());
-        upDirectory.setRelativePath(currentDir.getRelativePath());
-        upDirectory.setName("");
-        upDirectory.setDirectory(true);
-        return upDirectory;
+
+
+    public static String changeFileName(String path, String name) {
+        Path parent = Paths.get(path).getParent();
+        if (parent != null)
+            return parent.resolve(name).toString();
+        else
+            return name;
     }
 }
