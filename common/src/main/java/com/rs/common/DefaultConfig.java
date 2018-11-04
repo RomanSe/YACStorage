@@ -18,4 +18,5 @@ public class DefaultConfig {
     //server DB
     public static final String DRIVER_NAME = "org.sqlite.JDBC";
     public static final String DB_NAME = JDBC.PREFIX + "users.db";
+    public static final int TRY_NUM = 10;
 }

@@ -110,16 +110,18 @@ public class CommandProcessor {
 
     //SaveFileCommand
     public static Response process(SaveFileCommand command, Context context) {
-        FileDescriptor fileDescriptor = command.getFileDescriptor();
-        FilePart filePart = command.getFilePart();
         Response response = Response.getInstance();
         if (!context.isAuthorized()) {
             response.setResponseCode(ACCESS_DENIED);
             return response;
         }
+        FileDescriptor fileDescriptor = command.getFileDescriptor();
+        logger.debug(fileDescriptor + " скачка");
+        fileDescriptor.setRoot(context.getRootPath());
+        FilePart filePart = command.getFilePart();
         try {
             TempFile tempFile = context.getTempFile();
-            Path targetFilePath = FileUtilities.getFilePath(context.getRootPath(), fileDescriptor.getPath());
+            Path targetFilePath = fileDescriptor.getAbsolutePath();
             if (tempFile != null && !tempFile.getTargetPath().equals(targetFilePath)) {
                 System.out.println("Remove " + tempFile.getTempFilePath());
                 tempFile.close();
@@ -127,7 +129,7 @@ public class CommandProcessor {
                 tempFile = null;
             }
             if (tempFile == null) {
-                tempFile = TempFile.getInstance(context.getRootPath(), fileDescriptor.getPath(), fileDescriptor.getName());
+                tempFile = TempFile.getInstance(fileDescriptor.getAbsolutePath());
                 context.setTempFile(tempFile);
             }
             if (filePart.damaged()) {

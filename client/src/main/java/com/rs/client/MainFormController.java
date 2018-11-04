@@ -1,29 +1,25 @@
 package com.rs.client;
 
-import com.rs.client.tasks.GetRemoteDirectoryTask;
 import com.rs.common.DefaultConfig;
-import com.rs.common.FileUtilities;
-import com.rs.common.messages.Response;
 import com.rs.common.model.FileDescriptor;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
-import javafx.concurrent.Task;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
+import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.input.*;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.StackPane;
+import javafx.stage.Stage;
 import org.apache.log4j.Logger;
 
-import java.io.File;
-import java.io.IOException;
 import java.net.URL;
 import java.nio.file.Paths;
-import java.util.ArrayList;
 import java.util.ResourceBundle;
 
 public class MainFormController implements Initializable {
@@ -31,10 +27,13 @@ public class MainFormController implements Initializable {
 
     private final double ROW_HEIGHT = 20.0;
 
-    private ObservableList<FileDescriptor> localFilesList = FXCollections.observableArrayList();
-    private ObservableList<FileDescriptor> remoteFilesList = FXCollections.observableArrayList();
-    private FileDescriptor localDirectory = new FileDescriptor();
-    private FileDescriptor remoteDirectory = new FileDescriptor();
+    protected ObservableList<FileDescriptor> localFilesList = FXCollections.observableArrayList();
+    protected ObservableList<FileDescriptor> remoteFilesList = FXCollections.observableArrayList();
+    protected FileDescriptor localDirectory = new FileDescriptor();
+    protected FileDescriptor remoteDirectory = new FileDescriptor();
+
+    protected Stage progressStage;
+    protected ProgressBar progressBar;
 
     private Image dirImage = new Image(getClass().getResource("/folder.jpg").toString());
 
@@ -62,31 +61,25 @@ public class MainFormController implements Initializable {
     public void handleOnLocalTableClick(MouseEvent mouseEvent) {
         if (mouseEvent.getButton().equals(MouseButton.PRIMARY)) {
             if (mouseEvent.getClickCount() == 2) {
-                doLocalEnter();
-            }
+                ControllerHelper.updateLocalFileList();            }
         }
     }
 
     public void handleLocalTableKey(KeyEvent event) {
         System.out.println(event.getCode());
-        if (event.getCode().equals(KeyCode.ENTER))
-        {
-            doLocalEnter();
-        }
-    }
-
-    private void doLocalEnter() {
-        FileDescriptor fileDescriptor = localFilesTable.getSelectionModel().getSelectedItem();
-        if (fileDescriptor.isDirectory() && !fileDescriptor.getPath().equals("")) {
-            localDirectory.setAbsolutePath(fileDescriptor.getAbsolutePath());
-            updateLocalFileList();
+        switch (event.getCode()){
+            case ENTER:
+                ControllerHelper.updateLocalFileList();
+                break;
+            case F5:
+                ControllerHelper.saveFile();
         }
     }
 
     public void handleOnRemoteTableClick(MouseEvent mouseEvent) {
         if (mouseEvent.getButton().equals(MouseButton.PRIMARY)) {
             if (mouseEvent.getClickCount() == 2) {
-                doRemoteEnter();
+                ControllerHelper.updateRemoteFileList();
             }
         }
     }
@@ -94,32 +87,10 @@ public class MainFormController implements Initializable {
     public void handleRemoteTableKey(KeyEvent event) {
         if (event.getCode().equals(KeyCode.ENTER))
         {
-            doRemoteEnter();
+            ControllerHelper.updateRemoteFileList();
         }
     }
 
-    private void doRemoteEnter() {
-        FileDescriptor fileDescriptor = remoteFilesTable.getSelectionModel().getSelectedItem();
-        if (fileDescriptor != null && fileDescriptor.isDirectory()) {
-            remoteDirectory = fileDescriptor;
-            updateRemoteFileList();
-        }
-    }
-    //test
-    public void handleSaveFileAction(ActionEvent actionEvent) {
-        try {
-            String fileName = fileName1.getText();
-            String path = path1.getText();
-            FileDescriptor fileDescriptor = new FileDescriptor();
-            fileDescriptor.setPath(path);
-            fileDescriptor.setAbsolutePath(Paths.get(DefaultConfig.CLIENT_ROOT_PATH, path, fileName));
-            File file = fileDescriptor.getAbsolutePath().toFile();
-            fileDescriptor.setSize(file.length());
-            Worker.saveFile(fileDescriptor);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
 
     public void handleDownloadFileAction(ActionEvent actionEvent) {
         try {
@@ -162,53 +133,27 @@ public class MainFormController implements Initializable {
         }
     }
 
-
-    private void updateLocalFileList() {
-        try {
-            System.out.println(localDirectory);
-            ArrayList<FileDescriptor> list = FileUtilities.getRelativeDirectoryList(localDirectory);
-            localFilesList.setAll(list);
-        } catch (IOException e) {
-            logger.error(e.getLocalizedMessage());
-        }
-    }
-
-    public void updateRemoteFileList() {
-        errorMsg.setText("");
-        errorMsg.setVisible(false);
-        Task<Response> task = new GetRemoteDirectoryTask(remoteDirectory, remoteFilesList);
-        task.setOnSucceeded(evt -> {
-            errorMsg.setText("");
-        });
-        task.setOnFailed(evt -> {
-            if (task.getException() instanceof Exception) {
-                errorMsg.setText(task.getException().getLocalizedMessage());
-                errorMsg.setVisible(true);
-            }
-        });
-        new Thread(task).start();
-    }
-
-
     @Override
     public void initialize(URL location, ResourceBundle resources) {
-//        dirImage= new HBox();
-//        ImageView imageView = new ImageView();
-//        imageView.setImage(new Image(getClass().getResource("/folder.jpg").toString()));
-//        imageView.setFitHeight(30);
-//        imageView.setPreserveRatio(true);
-//        dirImage.getChildren().addAll(imageView);
-
         localDirectory.setAbsolutePath(Paths.get(DefaultConfig.CLIENT_ROOT_PATH));
+        ControllerHelper.init(this);
+        initProgressBar();
         tableInit(localFilesTable);
-        localFilesTable.setItems(localFilesList);
         tableInit(remoteFilesTable);
+        localFilesTable.setItems(localFilesList);
         remoteFilesTable.setItems(remoteFilesList);
-        updateLocalFileList();
-        updateRemoteFileList();
+        ControllerHelper.updateLocalFileList();
+        ControllerHelper.updateRemoteFileList();
     }
 
-    private static final DataFormat SERIALIZED_MIME_TYPE = new DataFormat("application/x-java-serialized-object");
+//    private static final DataFormat SERIALIZED_MIME_TYPE = new DataFormat("application/x-java-serialized-object");
+
+    public void initProgressBar() {
+        progressBar = new ProgressBar();
+        progressStage = new Stage();
+        progressStage.setScene(new Scene(new StackPane(progressBar), 300, 300));
+        progressStage.setAlwaysOnTop(true);
+    }
 
     private void tableInit(TableView<FileDescriptor> table) {
 

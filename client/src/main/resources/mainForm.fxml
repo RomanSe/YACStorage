@@ -52,7 +52,13 @@
         </SplitPane>
       <HBox minHeight="-Infinity" prefHeight="20.0" prefWidth="200.0">
          <children>
-            <Label fx:id="errorMsg" />
+            <Label fx:id="errorMsg" textFill="#ff1111">
+               <HBox.margin>
+                  <Insets />
+               </HBox.margin>
+               <padding>
+                  <Insets left="2.0" right="2.0" />
+               </padding></Label>
          </children></HBox>
       <HBox alignment="TOP_CENTER" layoutX="10.0" layoutY="349.0" maxHeight="-Infinity" minHeight="-Infinity" prefHeight="30.0" prefWidth="200.0">
          <children>
@@ -93,11 +99,6 @@
       </HBox>
         <GridPane alignment="CENTER">
             <children>
-                <Button maxWidth="1.7976931348623157E308" mnemonicParsing="false" onAction="#handleSaveFileAction" text="Загрузить" GridPane.columnIndex="0" GridPane.halignment="CENTER" GridPane.hgrow="ALWAYS" GridPane.rowIndex="0" HBox.hgrow="ALWAYS">
-                    <GridPane.margin>
-                        <Insets left="3.0" right="3.0" />
-                    </GridPane.margin>
-                </Button>
                 <Button maxWidth="1.7976931348623157E308" mnemonicParsing="false" onAction="#handleDownloadFileAction" text="Скачать" GridPane.columnIndex="1" GridPane.halignment="CENTER" GridPane.hgrow="ALWAYS" GridPane.rowIndex="0" HBox.hgrow="ALWAYS">
                     <GridPane.margin>
                         <Insets left="3.0" right="3.0" />
@@ -134,7 +135,7 @@
             <Insets bottom="2.0" left="2.0" right="2.0" top="2.0" />
          </padding>
          <children>
-            <Button maxWidth="1.7976931348623157E308" mnemonicParsing="false" onAction="#handleDeleteAction" text="Удалить файл" GridPane.columnIndex="1" GridPane.hgrow="ALWAYS" />
+            <Label text="F5 - Копировать | F7 - Создать директорию | F8 - Удалить | F6 - Переименовать" />
          </children>
       </GridPane>
     </children>
