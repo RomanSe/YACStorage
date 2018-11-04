@@ -12,8 +12,8 @@ import java.nio.file.Paths;
 
 import static com.rs.common.messages.ResponseCode.*;
 
-//TODO вынести в отдельный поток
-public class Worker extends Thread {
+//TODO все методы нужно вынести в отдельные Task
+public class Worker {
 
     public static void saveFile(FileDescriptor fileDescriptor) throws Exception {
         NetworkClient networkClient = NetworkClient.getInstance();
@@ -78,20 +78,6 @@ public class Worker extends Thread {
         Response response = networkClient.getResponse();
         if (response.getResponseCode() != OK) {
             throw new Exception(response.getResponseCode().getMessage() + "\n" + response.getErrorDescription());
-        }
-    }
-
-    public static void getDirectory(FileDescriptor fileDescriptor)  throws Exception {
-        NetworkClient networkClient = NetworkClient.getInstance();
-        networkClient.invoke(new GetDirectoryCommand(fileDescriptor));
-        Response response = networkClient.getResponse();
-        if (response.getResponseCode() != OK) {
-            throw new Exception(response.getResponseCode().getMessage() + "\n" + response.getErrorDescription());
-        } else {
-            //для отладки
-            for (FileDescriptor fDescriptor: response.getFileDescriptorList()) {
-                System.out.println(fDescriptor);
-            }
         }
     }
 

@@ -1,8 +1,6 @@
 package com.rs.common.messages;
 
 
-import java.security.NoSuchAlgorithmException;
-
 public class SignInCommand extends LoginCommand {
     private static final long serialVersionUID = 6231292321797642979L;
     private String email;
