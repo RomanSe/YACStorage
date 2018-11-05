@@ -1,7 +1,7 @@
 package com.rs.client;
 
 import com.rs.common.DefaultConfig;
-import com.rs.common.model.FileDescriptor;
+import com.rs.common.model.FileDescr;
 import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.event.ActionEvent;
@@ -16,7 +16,6 @@ import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.input.*;
 import javafx.scene.layout.HBox;
-import javafx.scene.layout.StackPane;
 import javafx.stage.Stage;
 import org.apache.log4j.Logger;
 
@@ -30,12 +29,14 @@ public class MainFormController implements Initializable {
 
     private final double ROW_HEIGHT = 20.0;
 
-    protected ObservableList<FileDescriptor> localFilesList = FXCollections.observableArrayList();
-    protected ObservableList<FileDescriptor> remoteFilesList = FXCollections.observableArrayList();
-    protected FileDescriptor localDirectory = new FileDescriptor();
-    protected FileDescriptor remoteDirectory = new FileDescriptor();
+    protected ObservableList<FileDescr> localFilesList = FXCollections.observableArrayList();
+    protected ObservableList<FileDescr> remoteFilesList = FXCollections.observableArrayList();
+    protected FileDescr localDirectory = new FileDescr();
+    protected FileDescr remoteDirectory = new FileDescr();
 
     protected Stage progressStage;
+    protected Stage textLineStage;
+
 
     private Image dirImage = new Image(getClass().getResource("/folder.jpg").toString());
 
@@ -52,10 +53,10 @@ public class MainFormController implements Initializable {
     TextField fileName2;
 
     @FXML
-    TableView<FileDescriptor> localFilesTable;
+    TableView<FileDescr> localFilesTable;
 
     @FXML
-    TableView<FileDescriptor> remoteFilesTable;
+    TableView<FileDescr> remoteFilesTable;
 
     @FXML
     Label errorMsg;
@@ -63,19 +64,26 @@ public class MainFormController implements Initializable {
     public void handleOnLocalTableClick(MouseEvent mouseEvent) {
         if (mouseEvent.getButton().equals(MouseButton.PRIMARY)) {
             if (mouseEvent.getClickCount() == 2) {
-                ControllerHelper.updateLocalFileList();            }
+                ControllerHelper.updateLocalFileList();
+            }
         }
+        mouseEvent.consume();
     }
 
     public void handleLocalTableKey(KeyEvent event) {
         System.out.println(event.getCode());
-        switch (event.getCode()){
+        switch (event.getCode()) {
             case ENTER:
                 ControllerHelper.updateLocalFileList();
                 break;
             case F5:
                 ControllerHelper.saveFile();
+                break;
+            case F8:
+                ControllerHelper.deleteLocalFile();
+                break;
         }
+        event.consume();
     }
 
     public void handleOnRemoteTableClick(MouseEvent mouseEvent) {
@@ -84,56 +92,27 @@ public class MainFormController implements Initializable {
                 ControllerHelper.updateRemoteFileList();
             }
         }
+        mouseEvent.consume();
     }
 
     public void handleRemoteTableKey(KeyEvent event) {
-        if (event.getCode().equals(KeyCode.ENTER))
-        {
-            ControllerHelper.updateRemoteFileList();
+        switch (event.getCode()) {
+            case ENTER:
+                ControllerHelper.updateRemoteFileList();
+                break;
+            case F5:
+                ControllerHelper.downloadFile();
+                break;
+            case F8:
+                ControllerHelper.deleteRemoteFile();
+                break;
+            case F6:
+                ControllerHelper.renameRemoteFile();
+                break;
         }
+        event.consume();
     }
 
-
-    public void handleDownloadFileAction(ActionEvent actionEvent) {
-        try {
-            String fileName = fileName1.getText();
-            String path = path1.getText();
-            FileDescriptor fileDescriptor = new FileDescriptor();
-            fileDescriptor.setPath(path);
-            Worker.downloadFile(fileDescriptor);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-
-    public void handleRenameFileAction(ActionEvent actionEvent) {
-        try {
-            String fileName = fileName1.getText();
-            String path = path1.getText();
-            String newFileName = fileName2.getText();
-            String newPath = path2.getText();
-            FileDescriptor fileDescriptor = new FileDescriptor();
-            fileDescriptor.setPath(path);
-            FileDescriptor newFileDescriptor = new FileDescriptor();
-            newFileDescriptor.setPath(newPath);
-            Worker.moveFile(fileDescriptor, newFileDescriptor);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-
-
-    public void handleDeleteAction(ActionEvent actionEvent) {
-        try {
-            String fileName = fileName1.getText();
-            String path = path1.getText();
-            FileDescriptor fileDescriptor = new FileDescriptor();
-            fileDescriptor.setPath(path);
-            Worker.deleteFile(fileDescriptor);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
 
     @Override
     public void initialize(URL location, ResourceBundle resources) {
@@ -160,16 +139,28 @@ public class MainFormController implements Initializable {
         } catch (IOException e) {
             e.printStackTrace();
         }
-
     }
 
-    private void tableInit(TableView<FileDescriptor> table) {
+    public void initTextDialog() {
+        Parent node = null;
+        try {
+            node = FXMLLoader.load(getClass().getResource("/progressForm.fxml"));
+            progressStage = new Stage();
+            progressStage.setScene(new Scene(node));
+            progressStage.setAlwaysOnTop(true);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
 
-        TableColumn<FileDescriptor, String> tcName = (TableColumn<FileDescriptor, String>) table.getColumns().get(1);
-        tcName.setCellValueFactory(new PropertyValueFactory<FileDescriptor, String>("name"));
-        TableColumn<FileDescriptor, Long> tcSize = (TableColumn<FileDescriptor, Long>) table.getColumns().get(2);
-        tcSize.setCellValueFactory(new PropertyValueFactory<FileDescriptor, Long>("size"));
-        tcSize.setCellFactory(column -> new TableCell<FileDescriptor, Long>() {
+
+    private void tableInit(TableView<FileDescr> table) {
+
+        TableColumn<FileDescr, String> tcName = (TableColumn<FileDescr, String>) table.getColumns().get(1);
+        tcName.setCellValueFactory(new PropertyValueFactory<FileDescr, String>("name"));
+        TableColumn<FileDescr, Long> tcSize = (TableColumn<FileDescr, Long>) table.getColumns().get(2);
+        tcSize.setCellValueFactory(new PropertyValueFactory<FileDescr, Long>("size"));
+        tcSize.setCellFactory(column -> new TableCell<FileDescr, Long>() {
             @Override
             protected void updateItem(Long item, boolean empty) {
                 super.updateItem(item, empty);
@@ -181,9 +172,9 @@ public class MainFormController implements Initializable {
                 }
             }
         });
-        TableColumn<FileDescriptor, Boolean> tcDirectory = (TableColumn<FileDescriptor, Boolean>) table.getColumns().get(0);
-        tcDirectory.setCellValueFactory(new PropertyValueFactory<FileDescriptor, Boolean>("directory"));
-        tcDirectory.setCellFactory(column -> new TableCell<FileDescriptor, Boolean>() {
+        TableColumn<FileDescr, Boolean> tcDirectory = (TableColumn<FileDescr, Boolean>) table.getColumns().get(0);
+        tcDirectory.setCellValueFactory(new PropertyValueFactory<FileDescr, Boolean>("directory"));
+        tcDirectory.setCellFactory(column -> new TableCell<FileDescr, Boolean>() {
             @Override
             protected void updateItem(Boolean item, boolean empty) {
                 super.updateItem(item, empty);
@@ -204,57 +195,6 @@ public class MainFormController implements Initializable {
                 }
             }
         });
-
-//        table.setRowFactory(tv -> {
-//            TableRow<FileDescriptor> row = new TableRow<>();
-//
-//            row.setOnDragDetected(event -> {
-//                if (!row.isEmpty()) {
-//                    FileDescriptor descriptor = row.getItem();
-//                    Dragboard db = row.startDragAndDrop(TransferMode.COPY);
-//                    db.setDragView(row.snapshot(null, null));
-//                    ClipboardContent cc = new ClipboardContent();
-//                    cc.put(SERIALIZED_MIME_TYPE, descriptor);
-//                    db.setContent(cc);
-//                    event.consume();
-//                }
-//            });
-//
-//            row.setOnDragOver(event -> {
-//                Dragboard db = event.getDragboard();
-//                if (db.hasContent(SERIALIZED_MIME_TYPE)) {
-//                    //if (row.getTableView() != ((FileDescriptor) db.getContent(SERIALIZED_MIME_TYPE));) {
-//                    System.out.println("bingo!");
-//                    event.acceptTransferModes(TransferMode.COPY_OR_MOVE);
-//                    event.consume();
-//                    //}
-//                }
-//            });
-//
-//            row.setOnDragDropped(event -> {
-//                Dragboard db = event.getDragboard();
-////                if (db.hasContent(SERIALIZED_MIME_TYPE)) {
-////                    int draggedIndex = (Integer) db.getContent(SERIALIZED_MIME_TYPE);
-////                    Person draggedPerson = tableView.getItems().remove(draggedIndex);
-////
-////                    int dropIndex;
-////
-////                    if (row.isEmpty()) {
-////                        dropIndex = tableView.getItems().size();
-////                    } else {
-////                        dropIndex = row.getIndex();
-////                    }
-////
-////                    tableView.getItems().add(dropIndex, draggedPerson);
-////
-////                    event.setDropCompleted(true);
-////                    tableView.getSelectionModel().select(dropIndex);
-////                    event.consume();
-////                }
-//            });
-//
-//            return row;
-//        });
     }
 
 }

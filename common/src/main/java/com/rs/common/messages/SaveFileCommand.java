@@ -1,6 +1,6 @@
 package com.rs.common.messages;
 
-import com.rs.common.model.FileDescriptor;
+import com.rs.common.model.FileDescr;
 import com.rs.common.model.FilePart;
 
 public class SaveFileCommand extends FileCommand {
@@ -15,8 +15,8 @@ public class SaveFileCommand extends FileCommand {
         this.filePart = filePart;
     }
 
-    public SaveFileCommand(FileDescriptor fileDescriptor, FilePart filePart) {
-        this.fileDescriptor = fileDescriptor;
+    public SaveFileCommand(FileDescr fileDescr, FilePart filePart) {
+        this.fileDescr = fileDescr;
         this.filePart = filePart;
     }
 

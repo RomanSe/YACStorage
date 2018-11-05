@@ -2,14 +2,13 @@ package com.rs.common.model;
 
 import com.rs.common.FileUtilities;
 
-import java.io.File;
 import java.io.Serializable;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Objects;
 
 //все есть файл
-public class FileDescriptor implements Serializable {
+public class FileDescr implements Serializable {
     private static final long serialVersionUID = 571710974311506623L;
     private String path = "";
     private transient String root = "";
@@ -27,7 +26,7 @@ public class FileDescriptor implements Serializable {
 
     private final String UP_SIGN = "...";
 
-    public FileDescriptor() {
+    public FileDescr() {
         path = "";
         root = "";
     }
@@ -58,11 +57,11 @@ public class FileDescriptor implements Serializable {
             setPath(Paths.get(root).relativize(path).toString());
     }
 
-    public FileDescriptor(Path root) {
+    public FileDescr(Path root) {
         setRoot(root);
     }
 
-    public FileDescriptor(String root) {
+    public FileDescr(String root) {
         setRoot(root);
     }
 
@@ -81,9 +80,9 @@ public class FileDescriptor implements Serializable {
             return Paths.get(path).getFileName().toString();
     }
 
-    public FileDescriptor getUpDirectory() {
-        FileDescriptor upDirectory;
-        upDirectory = new FileDescriptor(getRoot());
+    public FileDescr getUpDirectory() {
+        FileDescr upDirectory;
+        upDirectory = new FileDescr(getRoot());
         upDirectory.setPath(getParent());
         upDirectory.setDirectory(true);
         upDirectory.setUp(true);
@@ -115,7 +114,7 @@ public class FileDescriptor implements Serializable {
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
-        FileDescriptor that = (FileDescriptor) o;
+        FileDescr that = (FileDescr) o;
         return Objects.equals(path, that.path);
     }
 
@@ -126,7 +125,7 @@ public class FileDescriptor implements Serializable {
 
     @Override
     public String toString() {
-        return "FileDescriptor{" +
+        return "FileDescr{" +
                 ", path='" + path + '\'' +
                 ", size=" + size +
                 ", isDirectory=" + directory +

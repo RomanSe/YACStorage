@@ -9,12 +9,12 @@ import org.apache.log4j.Logger;
 import static com.rs.common.messages.ResponseCode.OK;
 
 //Login and register
-public class SimpleTask extends Task<Response> {
+public class SimpleNetworkTask extends Task<Response> {
     static Logger logger = Logger.getRootLogger();
 
     private final Command command;
 
-    public SimpleTask(Command command)  {
+    public SimpleNetworkTask(Command command)  {
         this.command = command;
     }
 

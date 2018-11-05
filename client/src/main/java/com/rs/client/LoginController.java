@@ -1,6 +1,6 @@
 package com.rs.client;
 
-import com.rs.client.tasks.SimpleTask;
+import com.rs.client.tasks.SimpleNetworkTask;
 import com.rs.common.messages.Command;
 import com.rs.common.messages.LoginCommand;
 import com.rs.common.messages.Response;
@@ -41,7 +41,7 @@ public class LoginController {
         errorMsg.setText("");
         errorMsg.setVisible(false);
         button.setDisable(true);
-        Task<Response> task = new SimpleTask(getCommand());
+        Task<Response> task = new SimpleNetworkTask(getCommand());
         task.setOnSucceeded(evt -> {
             Parent mainNode = null;
             try {

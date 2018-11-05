@@ -4,7 +4,7 @@ import com.rs.common.DefaultConfig;
 import com.rs.common.FileUtilities;
 import com.rs.common.TempFile;
 import com.rs.common.messages.*;
-import com.rs.common.model.FileDescriptor;
+import com.rs.common.model.FileDescr;
 import com.rs.common.model.FilePart;
 import com.rs.server.db.User;
 import org.apache.log4j.Logger;
@@ -23,7 +23,7 @@ public class CommandProcessor {
 
     //GetFileCommand
     public static Response process(GetFileCommand command, Context context) {
-        FileDescriptor fileDescriptor = command.getFileDescriptor();
+        FileDescr fileDescr = command.getFileDescr();
         long startPos = command.getStartPos();
         int length = command.getLength();
 
@@ -32,9 +32,9 @@ public class CommandProcessor {
             response.setResponseCode(ACCESS_DENIED);
             return response;
         }
-        System.out.println(fileDescriptor.getName() + " " + startPos);
+        System.out.println(fileDescr.getName() + " " + startPos);
         try {
-            Path targetFilePath = FileUtilities.getFilePath(context.getRootPath(), fileDescriptor.getPath());
+            Path targetFilePath = FileUtilities.getFilePath(context.getRootPath(), fileDescr.getPath());
             if (!Files.exists(targetFilePath)) {
                 response.setResponseCode(FILE_NOT_FOUND);
                 return response;
@@ -115,13 +115,13 @@ public class CommandProcessor {
             response.setResponseCode(ACCESS_DENIED);
             return response;
         }
-        FileDescriptor fileDescriptor = command.getFileDescriptor();
-        logger.debug(fileDescriptor + " скачка");
-        fileDescriptor.setRoot(context.getRootPath());
+        FileDescr fileDescr = command.getFileDescr();
+        logger.debug(fileDescr + " скачка");
+        fileDescr.setRoot(context.getRootPath());
         FilePart filePart = command.getFilePart();
         try {
             TempFile tempFile = context.getTempFile();
-            Path targetFilePath = fileDescriptor.getAbsolutePath();
+            Path targetFilePath = fileDescr.getAbsolutePath();
             if (tempFile != null && !tempFile.getTargetPath().equals(targetFilePath)) {
                 System.out.println("Remove " + tempFile.getTempFilePath());
                 tempFile.close();
@@ -129,7 +129,7 @@ public class CommandProcessor {
                 tempFile = null;
             }
             if (tempFile == null) {
-                tempFile = TempFile.getInstance(fileDescriptor.getAbsolutePath());
+                tempFile = TempFile.getInstance(fileDescr.getAbsolutePath());
                 context.setTempFile(tempFile);
             }
             if (filePart.damaged()) {
@@ -138,7 +138,7 @@ public class CommandProcessor {
             } else {
                 tempFile.seek(filePart.getStartPos());
                 tempFile.write(filePart.getBytes(), 0, filePart.getLength());
-                if (tempFile.getFilePointer() == fileDescriptor.getSize()) {  //файл записан
+                if (tempFile.getFilePointer() == fileDescr.getSize()) {  //файл записан
                     tempFile.moveToTarget();
                     context.setTempFile(null);
                 }
@@ -155,11 +155,11 @@ public class CommandProcessor {
 
     //MoveCommand
     public static Response process(MoveCommand command, Context context) {
-        FileDescriptor fileDescriptor = command.getFileDescriptor();
-        FileDescriptor newFileDescriptor = command.getNewFileDescriptor();
+        FileDescr fileDescr = command.getFileDescr();
+        FileDescr newFileDescr = command.getNewFileDescr();
         Response response = Response.getInstance();
-        Path filePath = FileUtilities.getFilePath(context.getRootPath(), fileDescriptor.getPath());
-        Path newFilePath = FileUtilities.getFilePath(context.getRootPath(), newFileDescriptor.getPath());
+        Path filePath = FileUtilities.getFilePath(context.getRootPath(), fileDescr.getPath());
+        Path newFilePath = FileUtilities.getFilePath(context.getRootPath(), newFileDescr.getPath());
         try {
             Files.move(filePath, newFilePath);
             response.setResponseCode(OK);
@@ -173,7 +173,7 @@ public class CommandProcessor {
 
     //GetDirectoryCommand
     public static Response process(GetDirectoryCommand command, Context context) {
-        FileDescriptor directoryDescriptor = command.getFileDescriptor();
+        FileDescr directoryDescriptor = command.getFileDescr();
         directoryDescriptor.setRoot(context.getRootPath());
         logger.debug(directoryDescriptor.toString());
 
@@ -185,7 +185,7 @@ public class CommandProcessor {
             response.setResponseCode(ResponseCode.DIRECTORY_NOT_FOUND);
             return response;
         }
-        ArrayList<FileDescriptor> filesList;
+        ArrayList<FileDescr> filesList;
         try {
             filesList = FileUtilities.getRelativeDirectoryList(directoryDescriptor);
         } catch (IOException e) {
@@ -194,15 +194,15 @@ public class CommandProcessor {
             return response;
         }
         response.setResponseCode(OK);
-        response.setFileDescriptorList(filesList);
+        response.setFileDescrList(filesList);
         return response;
     }
 
     //DeleteFileCommand
     public static Response process(DeleteFileCommand command, Context context) {
-        FileDescriptor fileDescriptor = command.getFileDescriptor();
+        FileDescr fileDescr = command.getFileDescr();
         Response response = Response.getInstance();
-        Path filePath = FileUtilities.getFilePath(context.getRootPath(), fileDescriptor.getPath());
+        Path filePath = FileUtilities.getFilePath(context.getRootPath(), fileDescr.getPath());
         try {
             Files.delete(filePath);
             response.setResponseCode(OK);

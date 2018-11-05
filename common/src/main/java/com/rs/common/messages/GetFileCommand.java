@@ -1,6 +1,6 @@
 package com.rs.common.messages;
 
-import com.rs.common.model.FileDescriptor;
+import com.rs.common.model.FileDescr;
 
 public class GetFileCommand extends FileCommand {
 
@@ -25,8 +25,8 @@ public class GetFileCommand extends FileCommand {
         this.length = length;
     }
 
-    public GetFileCommand(FileDescriptor fileDescriptor) {
-        this.fileDescriptor = fileDescriptor;
+    public GetFileCommand(FileDescr fileDescr) {
+        this.fileDescr = fileDescr;
     }
 
 }

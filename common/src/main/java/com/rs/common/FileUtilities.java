@@ -1,6 +1,6 @@
 package com.rs.common;
 
-import com.rs.common.model.FileDescriptor;
+import com.rs.common.model.FileDescr;
 
 import java.io.IOException;
 import java.nio.file.DirectoryStream;
@@ -19,20 +19,20 @@ public class FileUtilities {
         return p.toAbsolutePath();
     }
 
-    public static ArrayList<FileDescriptor> getRelativeDirectoryList(FileDescriptor dirDescriptor) throws IOException {
-        ArrayList<FileDescriptor> filesList = new ArrayList<>();
+    public static ArrayList<FileDescr> getRelativeDirectoryList(FileDescr dirDescriptor) throws IOException {
+        ArrayList<FileDescr> filesList = new ArrayList<>();
         filesList.add(dirDescriptor.getUpDirectory());
         DirectoryStream<Path> stream = Files.newDirectoryStream(dirDescriptor.getAbsolutePath());
         for (Path path : stream) {
-            FileDescriptor fileDescriptor = new FileDescriptor(dirDescriptor.getRoot());
-            fileDescriptor.setAbsolutePath(path);
+            FileDescr fileDescr = new FileDescr(dirDescriptor.getRoot());
+            fileDescr.setAbsolutePath(path);
             if (Files.isDirectory(path)) {
-                fileDescriptor.setDirectory(true);
+                fileDescr.setDirectory(true);
             } else {
-                fileDescriptor.setDirectory(false);
-                fileDescriptor.setSize(Files.size(path));
+                fileDescr.setDirectory(false);
+                fileDescr.setSize(Files.size(path));
             }
-            filesList.add(fileDescriptor);
+            filesList.add(fileDescr);
         }
         return filesList;
     }

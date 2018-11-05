@@ -80,31 +80,6 @@
                   <Insets left="2.0" right="2.0" />
                </padding></Label>
          </children></HBox>
-        <GridPane alignment="CENTER">
-            <children>
-                <Button maxWidth="1.7976931348623157E308" mnemonicParsing="false" onAction="#handleDownloadFileAction" text="Скачать" GridPane.columnIndex="1" GridPane.halignment="CENTER" GridPane.hgrow="ALWAYS" GridPane.rowIndex="0" HBox.hgrow="ALWAYS">
-                    <GridPane.margin>
-                        <Insets left="3.0" right="3.0" />
-                    </GridPane.margin>
-                </Button>
-                <Button maxWidth="1.7976931348623157E308" mnemonicParsing="false" onAction="#handleRenameFileAction" text="Переименовать" GridPane.columnIndex="2" GridPane.halignment="CENTER" GridPane.hgrow="ALWAYS" GridPane.rowIndex="0" HBox.hgrow="ALWAYS">
-                    <GridPane.margin>
-                        <Insets left="3.0" right="3.0" />
-                    </GridPane.margin>
-                </Button>
-            </children>
-            <columnConstraints>
-                <ColumnConstraints />
-                <ColumnConstraints />
-                <ColumnConstraints />
-            </columnConstraints>
-            <rowConstraints>
-                <RowConstraints />
-            </rowConstraints>
-            <padding>
-                <Insets bottom="2.0" left="2.0" right="2.0" top="2.0" />
-            </padding>
-        </GridPane>
       <GridPane alignment="CENTER" layoutX="10.0" layoutY="331.0">
          <columnConstraints>
             <ColumnConstraints />
@@ -118,7 +93,7 @@
             <Insets bottom="2.0" left="2.0" right="2.0" top="2.0" />
          </padding>
          <children>
-            <Label text="F5 - Копировать | F7 - Создать директорию | F8 - Удалить | F6 - Переименовать" />
+            <Label text="F5 - Копировать | F8 - Удалить | F6 - Переименовать" />
          </children>
       </GridPane>
     </children>

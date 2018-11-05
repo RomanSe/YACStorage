@@ -1,23 +1,23 @@
 package com.rs.common.messages;
 
-import com.rs.common.model.FileDescriptor;
+import com.rs.common.model.FileDescr;
 
 
 public class MoveCommand extends FileCommand {
     private static final long serialVersionUID = 2745630059078720834L;
-    private FileDescriptor newFileDescriptor;
+    private FileDescr newFileDescr;
 
-    public MoveCommand(FileDescriptor fileDescriptor, FileDescriptor newFileDescriptor) {
-        this.fileDescriptor = fileDescriptor;
-        this.newFileDescriptor = newFileDescriptor;
+    public MoveCommand(FileDescr fileDescr, FileDescr newFileDescr) {
+        this.fileDescr = fileDescr;
+        this.newFileDescr = newFileDescr;
     }
 
-    public FileDescriptor getNewFileDescriptor() {
-        return newFileDescriptor;
+    public FileDescr getNewFileDescr() {
+        return newFileDescr;
     }
 
-    public void setNewFileDescriptor(FileDescriptor newFileDescriptor) {
-        this.newFileDescriptor = newFileDescriptor;
+    public void setNewFileDescr(FileDescr newFileDescr) {
+        this.newFileDescr = newFileDescr;
     }
 
 }

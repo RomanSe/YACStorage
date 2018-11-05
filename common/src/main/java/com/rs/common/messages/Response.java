@@ -1,6 +1,6 @@
 package com.rs.common.messages;
 
-import com.rs.common.model.FileDescriptor;
+import com.rs.common.model.FileDescr;
 import com.rs.common.model.FilePart;
 
 import java.io.Serializable;
@@ -32,12 +32,12 @@ public class Response implements Serializable {
         this.responseCode = responseCode;
     }
 
-    public ArrayList<FileDescriptor> getFileDescriptorList() {
-        return fileDescriptorList;
+    public ArrayList<FileDescr> getFileDescrList() {
+        return fileDescrList;
     }
 
-    public void setFileDescriptorList(ArrayList<FileDescriptor> fileDescriptorList) {
-        this.fileDescriptorList = fileDescriptorList;
+    public void setFileDescrList(ArrayList<FileDescr> fileDescrList) {
+        this.fileDescrList = fileDescrList;
     }
 
     public FilePart getFilePart() {
@@ -48,7 +48,7 @@ public class Response implements Serializable {
         this.filePart = filePart;
     }
 
-    private ArrayList<FileDescriptor> fileDescriptorList;
+    private ArrayList<FileDescr> fileDescrList;
     private FilePart filePart;
 
     public static Response getInstance() {
