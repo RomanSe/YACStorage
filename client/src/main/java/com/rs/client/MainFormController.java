@@ -6,7 +6,9 @@ import javafx.collections.FXCollections;
 import javafx.collections.ObservableList;
 import javafx.event.ActionEvent;
 import javafx.fxml.FXML;
+import javafx.fxml.FXMLLoader;
 import javafx.fxml.Initializable;
+import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.control.cell.PropertyValueFactory;
@@ -18,6 +20,7 @@ import javafx.scene.layout.StackPane;
 import javafx.stage.Stage;
 import org.apache.log4j.Logger;
 
+import java.io.IOException;
 import java.net.URL;
 import java.nio.file.Paths;
 import java.util.ResourceBundle;
@@ -33,7 +36,6 @@ public class MainFormController implements Initializable {
     protected FileDescriptor remoteDirectory = new FileDescriptor();
 
     protected Stage progressStage;
-    protected ProgressBar progressBar;
 
     private Image dirImage = new Image(getClass().getResource("/folder.jpg").toString());
 
@@ -149,10 +151,16 @@ public class MainFormController implements Initializable {
 //    private static final DataFormat SERIALIZED_MIME_TYPE = new DataFormat("application/x-java-serialized-object");
 
     public void initProgressBar() {
-        progressBar = new ProgressBar();
-        progressStage = new Stage();
-        progressStage.setScene(new Scene(new StackPane(progressBar), 300, 300));
-        progressStage.setAlwaysOnTop(true);
+        Parent node = null;
+        try {
+            node = FXMLLoader.load(getClass().getResource("/progressForm.fxml"));
+            progressStage = new Stage();
+            progressStage.setScene(new Scene(node));
+            progressStage.setAlwaysOnTop(true);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
     }
 
     private void tableInit(TableView<FileDescriptor> table) {

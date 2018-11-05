@@ -8,6 +8,8 @@ import com.rs.common.model.FileDescriptor;
 import javafx.concurrent.Task;
 import javafx.scene.control.Alert;
 import javafx.scene.control.ButtonType;
+import javafx.scene.control.Label;
+import javafx.scene.control.ProgressBar;
 import org.apache.log4j.Logger;
 
 import java.io.IOException;
@@ -78,10 +80,12 @@ public class ControllerHelper {
         remoteFile.setSize(fileDescriptor.getSize());
 
         Task<Response> task = new SaveFileTask(remoteFile);
-        c.progressBar.progressProperty().bind(task.progressProperty());
+        getProgressBar().progressProperty().bind(task.progressProperty());
+        getProgressBarLabel().setText("Загрузка в хранилище: " + fileDescriptor.getName());
         task.setOnScheduled(e -> c.progressStage.show());
         task.setOnSucceeded(evt -> {
             showError(null);
+            c.progressStage.hide();
         });
         task.setOnFailed(evt -> {
             if (task.getException() instanceof Exception) {
@@ -103,6 +107,13 @@ public class ControllerHelper {
         }
     }
 
+    private static ProgressBar getProgressBar() {
+        return (ProgressBar) c.progressStage.getScene().lookup("#progressBar");
+    }
+
+    private static Label getProgressBarLabel() {
+        return (Label) c.progressStage.getScene().lookup("#label");
+    }
 
     public static String formatSize(String value) {
         long size = Long.parseLong(value);
