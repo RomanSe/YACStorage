@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.PasswordField?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.layout.ColumnConstraints?>
+<?import javafx.scene.layout.GridPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.RowConstraints?>
+
+<GridPane fx:id="form" alignment="center" hgap="10" vgap="10" xmlns="http://javafx.com/javafx/8.0.172-ea" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.rs.client.LoginController">
+    <Label text="User Name:" GridPane.columnIndex="0" GridPane.rowIndex="1" />
+
+    <TextField fx:id="loginField" GridPane.columnIndex="1" GridPane.rowIndex="1" />
+
+    <Label text="Password:" GridPane.columnIndex="0" GridPane.rowIndex="2" />
+
+    <PasswordField fx:id="passwordField" GridPane.columnIndex="1" GridPane.rowIndex="2" />
+
+    <HBox alignment="bottom_right" spacing="10" GridPane.columnIndex="1" GridPane.rowIndex="4">
+        <Button fx:id="button" onAction="#handleSubmitButton" onKeyPressed="#handleEnterButton" text="Login" />
+        <Button onAction="#handleSubmitRegisterButton" text="Register" />
+    </HBox>
+    <Label fx:id="errorMsg" text="" textAlignment="CENTER" textFill="#f81f07" visible="false" wrapText="true" GridPane.columnSpan="2147483647" GridPane.rowIndex="5">
+      <padding>
+         <Insets left="5.0" right="5.0" />
+      </padding></Label>
+   <columnConstraints>
+      <ColumnConstraints />
+      <ColumnConstraints />
+   </columnConstraints>
+   <rowConstraints>
+      <RowConstraints />
+      <RowConstraints />
+      <RowConstraints />
+      <RowConstraints />
+      <RowConstraints />
+      <RowConstraints minHeight="10.0" prefHeight="30.0" />
+   </rowConstraints>
+</GridPane>

@@ -1,0 +1,3086 @@
+
+=====================ClientMain.java====================
+package com.rs.client;
+
+import javafx.application.Application;
+import javafx.fxml.FXMLLoader;
+import javafx.scene.Parent;
+import javafx.scene.Scene;
+import javafx.stage.Stage;
+import org.apache.log4j.PropertyConfigurator;
+
+
+public class ClientMain extends Application {
+    static final int WIDTH = 600;
+    static final int HEIGHT = 550;
+    static Stage primaryStage;
+
+    @Override
+    public void start(Stage primaryStage) throws Exception{
+        this.primaryStage = primaryStage;
+        Parent loginNode = FXMLLoader.load(getClass().getResource("/loginForm.fxml"));
+        Scene loginForm = new Scene(loginNode, WIDTH, HEIGHT);
+
+        primaryStage.setTitle("YACStorage");
+        primaryStage.setScene(loginForm);
+        primaryStage.show();
+    }
+
+    public static void configureLogger() {
+        String nameFile = "log4j.xml";
+        PropertyConfigurator.configure(nameFile);
+    }
+
+    public static void main(String[] args) {
+        configureLogger();
+        launch(args);
+    }
+}
+
+=====================ControllerHelper.java====================
+package com.rs.client;
+
+import com.rs.client.tasks.DownloadFileTask;
+import com.rs.client.tasks.GetRemoteDirectoryTask;
+import com.rs.client.tasks.SaveFileTask;
+import com.rs.client.tasks.SimpleNetworkTask;
+import com.rs.common.FileUtilities;
+import com.rs.common.messages.DeleteFileCommand;
+import com.rs.common.messages.MoveCommand;
+import com.rs.common.messages.Response;
+import com.rs.common.model.FileDescr;
+import javafx.concurrent.Task;
+import javafx.scene.control.*;
+import org.apache.log4j.Logger;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.util.ArrayList;
+import java.util.Optional;
+
+public class ControllerHelper {
+    static Logger logger = Logger.getLogger(ControllerHelper.class);
+    static MainFormController c;
+
+    static void deleteRemoteFile() {
+        FileDescr file = c.remoteFilesTable.getSelectionModel().getSelectedItem();
+        Task<Response> task = new SimpleNetworkTask(new DeleteFileCommand(file));
+        invokeSimpleTask(task, "Удалить файл " + file.getName() + " ?");
+    }
+
+    static void renameRemoteFile() {
+        FileDescr file = c.remoteFilesTable.getSelectionModel().getSelectedItem();
+        String newName = showTextInputDialog("Переименование", file.getName(), "Новое имя:");
+        FileDescr newFile = new FileDescr();
+        newFile.setPath(FileUtilities.changeFileName(file.getPath(), newName));
+        Task<Response> task = new SimpleNetworkTask(new MoveCommand(file, newFile));
+        invokeSimpleTask(task, "Переименовать файл " + file.getName() + " ?");
+    }
+
+    static void deleteLocalFile() {
+        FileDescr file = c.localFilesTable.getSelectionModel().getSelectedItem();
+        if (!getConfirmation("Удалить файл " + file.getName() + " ?")) return;
+        try {
+            Files.delete(file.getAbsolutePath());
+        } catch (IOException e) {
+            e.printStackTrace();
+            showError(e.toString());
+        }
+        updateLocalFileList();
+    }
+
+    static void updateRemoteFileList() {
+        FileDescr file = c.remoteFilesTable.getSelectionModel().getSelectedItem();
+        if (file != null && file.isDirectory()) {
+            c.remoteDirectory = file;
+        }
+        showError(null);
+        Task<Response> task = new GetRemoteDirectoryTask(c.remoteDirectory, c.remoteFilesList);
+        task.setOnFailed(evt -> {
+            if (task.getException() instanceof Exception) {
+                showError(task.getException().getLocalizedMessage());
+            }
+        });
+        Thread th = new Thread(task);
+        th.setDaemon(true);
+        th.start();
+
+    }
+
+    static void updateLocalFileList() {
+        FileDescr file = c.localFilesTable.getSelectionModel().getSelectedItem();
+        if (file != null && file.isDirectory() && !file.getPath().equals("")) {
+            c.localDirectory.setAbsolutePath(file.getAbsolutePath());
+        }
+        try {
+            ArrayList<FileDescr> list = FileUtilities.getRelativeDirectoryList(c.localDirectory);
+            c.localFilesList.setAll(list);
+        } catch (IOException e) {
+            logger.error(e.getLocalizedMessage());
+        }
+
+    }
+
+    static void saveFile() {
+        FileDescr fileDescr = c.localFilesTable.getSelectionModel().getSelectedItem();
+        if (fileDescr.isDirectory()) {
+            showError("Копирование директорий не поддерживается");
+            return;
+        }
+        longTask("Загрузить в хранилище " + fileDescr.getName() + "?",
+                "Загрузка в хранилище: " + fileDescr.getName(),
+                new SaveFileTask(fileDescr, c.remoteDirectory));
+
+    }
+
+    static void downloadFile() {
+        FileDescr fileDescr = c.remoteFilesTable.getSelectionModel().getSelectedItem();
+        if (fileDescr.isDirectory()) {
+            showError("Копирование директорий не поддерживается");
+            return;
+        }
+        longTask("Выгрузить из хранилища " + fileDescr.getName() + "?",
+                "Выгрузка из хранилища: " + fileDescr.getName(),
+                new DownloadFileTask(fileDescr, c.localDirectory));
+    }
+
+    static void longTask(String alertText, String progressText, Task<Response> task) {
+        if (!getConfirmation(alertText)) return;
+        showError(null);
+        getProgressBar().progressProperty().bind(task.progressProperty());
+        getProgressBarLabel().setText(progressText);
+        task.setOnScheduled(e -> c.progressStage.show());
+        task.setOnSucceeded(evt -> {
+            showError(null);
+            c.progressStage.hide();
+            updateLocalFileList();
+            updateRemoteFileList();
+        });
+        task.setOnFailed(evt -> {
+            if (task.getException() instanceof Exception) {
+                showError(task.getException().getLocalizedMessage());
+                c.progressStage.hide();
+            }
+        });
+        Thread th = new Thread(task);
+        th.setDaemon(true);
+        th.start();
+    }
+
+
+    private static void invokeSimpleTask(Task<Response> task, String alertText) {
+        if (!getConfirmation(alertText)) return;
+
+        task.setOnSucceeded(evt -> {
+            updateRemoteFileList();
+            updateLocalFileList();
+        });
+        task.setOnFailed(evt -> {
+            if (task.getException() instanceof Exception) {
+                showError(task.getException().getLocalizedMessage());
+            }
+        });
+        Thread th = new Thread(task);
+        th.setDaemon(true);
+        th.start();
+    }
+
+    private static boolean getConfirmation(String alertMessage) {
+        Alert alert = new Alert(Alert.AlertType.CONFIRMATION, "", ButtonType.OK, ButtonType.CANCEL);
+        alert.setHeaderText(alertMessage);
+        Optional<ButtonType> result = alert.showAndWait();
+        if (result.get().getText().equals("Cancel")) {
+            return false;
+        }
+        return true;
+    }
+
+    private static void showError(String error) {
+        if (error != null) {
+            c.errorMsg.setText(error);
+            c.errorMsg.setVisible(true);
+        } else {
+            c.errorMsg.setVisible(false);
+        }
+    }
+
+    private static String showTextInputDialog(String title, String dflt, String text) {
+        TextInputDialog dialog = new TextInputDialog(dflt);
+        dialog.setTitle(title);
+        dialog.setContentText(text);
+        Optional<String> result = dialog.showAndWait();
+        if (result.isPresent()){
+            return result.get();
+        }
+        return null;
+    }
+
+    private static ProgressBar getProgressBar() {
+        return (ProgressBar) c.progressStage.getScene().lookup("#progressBar");
+    }
+
+    private static Label getProgressBarLabel() {
+        return (Label) c.progressStage.getScene().lookup("#label");
+    }
+
+    public static String formatSize(String value) {
+        long size = Long.parseLong(value);
+        if (size < 1000)
+            return value + " B";
+        else if (size < 1000000)
+            return (size / 1000) + " kB";
+        else if (size < 1000000000)
+            return (size / 1000000) + " MB";
+        else
+            return (size / 1000000000) + " GB";
+    }
+
+    public static void init(MainFormController mainFormController) {
+        c = mainFormController;
+    }
+}
+
+=====================LoginController.java====================
+package com.rs.client;
+
+import com.rs.client.tasks.SimpleNetworkTask;
+import com.rs.common.messages.Command;
+import com.rs.common.messages.LoginCommand;
+import com.rs.common.messages.Response;
+import javafx.concurrent.Task;
+import javafx.event.ActionEvent;
+import javafx.fxml.FXML;
+import javafx.fxml.FXMLLoader;
+import javafx.scene.Parent;
+import javafx.scene.Scene;
+import javafx.scene.control.Button;
+import javafx.scene.control.Label;
+import javafx.scene.control.PasswordField;
+import javafx.scene.control.TextField;
+import javafx.scene.input.KeyCode;
+import javafx.scene.input.KeyEvent;
+import javafx.scene.layout.GridPane;
+import javafx.stage.Stage;
+
+import java.io.IOException;
+
+public class LoginController {
+    @FXML
+    GridPane form;
+
+    @FXML
+    TextField loginField;
+
+    @FXML
+    PasswordField passwordField;
+
+    @FXML
+    Label errorMsg;
+
+    @FXML
+    Button button;
+
+    public void handleSubmitButton(ActionEvent actionEvent) {
+        errorMsg.setText("");
+        errorMsg.setVisible(false);
+        button.setDisable(true);
+        Task<Response> task = new SimpleNetworkTask(getCommand());
+        task.setOnSucceeded(evt -> {
+            Parent mainNode = null;
+            try {
+                mainNode = FXMLLoader.load(getClass().getResource("/mainForm.fxml"));
+                ((Stage) form.getScene().getWindow()).setScene(new Scene(mainNode, ClientMain.WIDTH, ClientMain.HEIGHT));
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        });
+        task.setOnFailed(evt -> {
+            if (task.getException() instanceof Exception) {
+                errorMsg.setText(task.getException().getLocalizedMessage());
+                errorMsg.setVisible(true);
+            }
+            button.setDisable(false);
+        });
+        new Thread(task).start();
+    }
+
+    public void handleEnterButton(KeyEvent event) {
+        if (event.getCode().equals(KeyCode.ENTER))
+        {
+            handleSubmitButton(new ActionEvent());
+        }
+    }
+
+    protected Command getCommand() {
+        return new LoginCommand(loginField.getText(), passwordField.getText());
+    }
+
+    public void handleSubmitRegisterButton(ActionEvent actionEvent) {
+        errorMsg.setText("");
+        errorMsg.setVisible(false);
+        try {
+            Parent registerNode = FXMLLoader.load(getClass().getResource("/registerForm.fxml"));
+            ((Stage) form.getScene().getWindow()).setScene(new Scene(registerNode, ClientMain.WIDTH, ClientMain.HEIGHT));
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+}
+
+=====================MainFormController.java====================
+package com.rs.client;
+
+import com.rs.common.DefaultConfig;
+import com.rs.common.model.FileDescr;
+import javafx.collections.FXCollections;
+import javafx.collections.ObservableList;
+import javafx.event.ActionEvent;
+import javafx.fxml.FXML;
+import javafx.fxml.FXMLLoader;
+import javafx.fxml.Initializable;
+import javafx.scene.Parent;
+import javafx.scene.Scene;
+import javafx.scene.control.*;
+import javafx.scene.control.cell.PropertyValueFactory;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
+import javafx.scene.input.*;
+import javafx.scene.layout.HBox;
+import javafx.stage.Stage;
+import org.apache.log4j.Logger;
+
+import java.io.IOException;
+import java.net.URL;
+import java.nio.file.Paths;
+import java.util.ResourceBundle;
+
+public class MainFormController implements Initializable {
+    Logger logger = Logger.getRootLogger();
+
+    private final double ROW_HEIGHT = 20.0;
+
+    protected ObservableList<FileDescr> localFilesList = FXCollections.observableArrayList();
+    protected ObservableList<FileDescr> remoteFilesList = FXCollections.observableArrayList();
+    protected FileDescr localDirectory = new FileDescr();
+    protected FileDescr remoteDirectory = new FileDescr();
+
+    protected Stage progressStage;
+    protected Stage textLineStage;
+
+
+    private Image dirImage = new Image(getClass().getResource("/folder.jpg").toString());
+
+    @FXML
+    TextField path1;
+
+    @FXML
+    TextField path2;
+
+    @FXML
+    TextField fileName1;
+
+    @FXML
+    TextField fileName2;
+
+    @FXML
+    TableView<FileDescr> localFilesTable;
+
+    @FXML
+    TableView<FileDescr> remoteFilesTable;
+
+    @FXML
+    Label errorMsg;
+
+    public void handleOnLocalTableClick(MouseEvent mouseEvent) {
+        if (mouseEvent.getButton().equals(MouseButton.PRIMARY)) {
+            if (mouseEvent.getClickCount() == 2) {
+                ControllerHelper.updateLocalFileList();
+            }
+        }
+        mouseEvent.consume();
+    }
+
+    public void handleLocalTableKey(KeyEvent event) {
+        System.out.println(event.getCode());
+        switch (event.getCode()) {
+            case ENTER:
+                ControllerHelper.updateLocalFileList();
+                break;
+            case F5:
+                ControllerHelper.saveFile();
+                break;
+            case F8:
+                ControllerHelper.deleteLocalFile();
+                break;
+        }
+        event.consume();
+    }
+
+    public void handleOnRemoteTableClick(MouseEvent mouseEvent) {
+        if (mouseEvent.getButton().equals(MouseButton.PRIMARY)) {
+            if (mouseEvent.getClickCount() == 2) {
+                ControllerHelper.updateRemoteFileList();
+            }
+        }
+        mouseEvent.consume();
+    }
+
+    public void handleRemoteTableKey(KeyEvent event) {
+        switch (event.getCode()) {
+            case ENTER:
+                ControllerHelper.updateRemoteFileList();
+                break;
+            case F5:
+                ControllerHelper.downloadFile();
+                break;
+            case F8:
+                ControllerHelper.deleteRemoteFile();
+                break;
+            case F6:
+                ControllerHelper.renameRemoteFile();
+                break;
+        }
+        event.consume();
+    }
+
+
+    @Override
+    public void initialize(URL location, ResourceBundle resources) {
+        localDirectory.setAbsolutePath(Paths.get(DefaultConfig.CLIENT_ROOT_PATH));
+        ControllerHelper.init(this);
+        initProgressBar();
+        tableInit(localFilesTable);
+        tableInit(remoteFilesTable);
+        localFilesTable.setItems(localFilesList);
+        remoteFilesTable.setItems(remoteFilesList);
+        ControllerHelper.updateLocalFileList();
+        ControllerHelper.updateRemoteFileList();
+    }
+
+//    private static final DataFormat SERIALIZED_MIME_TYPE = new DataFormat("application/x-java-serialized-object");
+
+    public void initProgressBar() {
+        Parent node = null;
+        try {
+            node = FXMLLoader.load(getClass().getResource("/progressForm.fxml"));
+            progressStage = new Stage();
+            progressStage.setScene(new Scene(node));
+            progressStage.setAlwaysOnTop(true);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void initTextDialog() {
+        Parent node = null;
+        try {
+            node = FXMLLoader.load(getClass().getResource("/progressForm.fxml"));
+            progressStage = new Stage();
+            progressStage.setScene(new Scene(node));
+            progressStage.setAlwaysOnTop(true);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+
+    private void tableInit(TableView<FileDescr> table) {
+
+        TableColumn<FileDescr, String> tcName = (TableColumn<FileDescr, String>) table.getColumns().get(1);
+        tcName.setCellValueFactory(new PropertyValueFactory<FileDescr, String>("name"));
+        TableColumn<FileDescr, Long> tcSize = (TableColumn<FileDescr, Long>) table.getColumns().get(2);
+        tcSize.setCellValueFactory(new PropertyValueFactory<FileDescr, Long>("size"));
+        tcSize.setCellFactory(column -> new TableCell<FileDescr, Long>() {
+            @Override
+            protected void updateItem(Long item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null || item.equals("0")) {
+                    setText(null);
+                    setStyle("");
+                } else {
+                    setText(ControllerHelper.formatSize(item.toString()));
+                }
+            }
+        });
+        TableColumn<FileDescr, Boolean> tcDirectory = (TableColumn<FileDescr, Boolean>) table.getColumns().get(0);
+        tcDirectory.setCellValueFactory(new PropertyValueFactory<FileDescr, Boolean>("directory"));
+        tcDirectory.setCellFactory(column -> new TableCell<FileDescr, Boolean>() {
+            @Override
+            protected void updateItem(Boolean item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setText(null);
+                    setStyle("");
+                    setGraphic(null);
+                } else {
+                    if (item) {
+                        HBox dirImageBox = new HBox();
+                        ImageView imageView = new ImageView();
+                        imageView.setImage(dirImage);
+                        imageView.setFitHeight(ROW_HEIGHT);
+                        imageView.setPreserveRatio(true);
+                        dirImageBox.getChildren().addAll(imageView);
+                        setGraphic(dirImageBox);
+                    }
+                }
+            }
+        });
+    }
+
+}
+
+
+=====================CommandHandler.java====================
+package com.rs.client.network;
+
+import com.rs.common.messages.Command;
+import com.rs.common.messages.Response;
+import io.netty.channel.ChannelDuplexHandler;
+import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.ChannelPromise;
+import io.netty.util.ReferenceCountUtil;
+
+import java.io.IOException;
+import java.net.SocketAddress;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CountDownLatch;
+
+public class CommandHandler extends ChannelDuplexHandler {
+
+    private BlockingQueue<Response> outbox;
+
+    public CommandHandler(BlockingQueue<Response> outbox) {
+        this.outbox = outbox;
+    }
+
+
+    @Override
+    public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
+        try {
+            if (msg == null)
+                return;
+            outbox.put((Response) msg);
+        } finally {
+            ReferenceCountUtil.release(msg);
+        }
+    }
+
+}
+
+=====================NetworkClient.java====================
+package com.rs.client.network;
+
+import com.rs.common.messages.Command;
+import com.rs.common.messages.LoginCommand;
+import com.rs.common.messages.Response;
+import io.netty.bootstrap.Bootstrap;
+import io.netty.channel.*;
+import io.netty.channel.nio.NioEventLoopGroup;
+import io.netty.channel.socket.SocketChannel;
+import io.netty.channel.socket.nio.NioSocketChannel;
+import io.netty.handler.codec.serialization.ClassResolvers;
+import io.netty.handler.codec.serialization.ObjectDecoder;
+import io.netty.handler.codec.serialization.ObjectEncoder;
+import com.rs.common.DefaultConfig;
+
+import java.util.concurrent.ArrayBlockingQueue;
+
+public class NetworkClient extends Thread{
+    private static NetworkClient networkClient;
+    private int port;
+    private String host;
+    private final ArrayBlockingQueue<Command> inbox = new ArrayBlockingQueue<>(DefaultConfig.NETWORK_QUEUE_SIZE);
+    private final ArrayBlockingQueue<Response> outbox = new ArrayBlockingQueue<>(DefaultConfig.NETWORK_QUEUE_SIZE);
+
+    private Channel channel;
+
+    public static NetworkClient getInstance() {
+        if (networkClient == null) {
+            networkClient = new NetworkClient(DefaultConfig.HOST, DefaultConfig.PORT);
+            networkClient.setDaemon(true);
+            networkClient.start();
+        }
+        return networkClient;
+    }
+
+    private NetworkClient(String host, int port) {
+        this.port = port;
+        this.host = host;
+    }
+
+    @Override
+    public void run() {
+        EventLoopGroup workerGroup = new NioEventLoopGroup();
+
+        try {
+            Bootstrap bootstrap = new Bootstrap();
+            bootstrap.group(workerGroup);
+            bootstrap.channel(NioSocketChannel.class);
+            bootstrap.option(ChannelOption.SO_KEEPALIVE, true);
+            bootstrap.handler(new ChannelInitializer<SocketChannel>() {
+
+                @Override
+                protected void initChannel(SocketChannel ch) throws Exception {
+                    ch.pipeline().addLast(
+                            new ObjectDecoder(DefaultConfig.MAX_OBJ_SIZE, ClassResolvers.cacheDisabled(null)),
+                            new ObjectEncoder(),
+                            new CommandHandler(outbox)
+                    );
+                    channel = ch;
+                }
+            });
+            ChannelFuture channelFuture = bootstrap.connect(host, port).sync();
+            while (!isInterrupted()) {
+                Command command = inbox.take();
+                channel.writeAndFlush(command);
+            }
+
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        } finally {
+            workerGroup.shutdownGracefully();
+        }
+    }
+
+    public void invoke(Command command) throws InterruptedException {
+        inbox.put(command);
+    }
+
+    public Response getResponse() throws InterruptedException {
+        return outbox.take();
+    }
+
+
+
+//    public static void main(String[] args) throws Exception {
+//        int port = DefaultConfig.PORT;
+//        String host = DefaultConfig.HOST;
+//        if (args.length > 0) {
+//            host = args[0];
+//            if (args.length > 1) {
+//                port = Integer.parseInt(args[1]);
+//            }
+//        }
+//        NetworkClient networkClient = new NetworkClient(host, port);
+//        networkClient.start();
+//        networkClient.invoke(new LoginCommand("user", "123"));
+//        Response response = networkClient.getResponse();
+//        System.out.println(response.getResponseCode());
+//
+//    }
+
+
+}
+
+=====================RegisterController.java====================
+package com.rs.client;
+
+import com.rs.common.messages.Command;
+import com.rs.common.messages.SignInCommand;
+import javafx.event.ActionEvent;
+import javafx.fxml.FXML;
+import javafx.fxml.FXMLLoader;
+import javafx.scene.Parent;
+import javafx.scene.Scene;
+import javafx.scene.control.Button;
+import javafx.scene.control.Label;
+import javafx.scene.control.PasswordField;
+import javafx.scene.control.TextField;
+import javafx.scene.layout.GridPane;
+import javafx.stage.Stage;
+
+public class RegisterController extends LoginController {
+    @FXML
+    TextField email;
+
+    @Override
+    protected Command getCommand() {
+        return new SignInCommand(loginField.getText(), passwordField.getText(), email.getText());
+    }
+}
+
+=====================DownloadFileTask.java====================
+package com.rs.client.tasks;
+
+import com.rs.client.network.NetworkClient;
+import com.rs.common.DefaultConfig;
+import com.rs.common.TempFile;
+import com.rs.common.messages.GetFileCommand;
+import com.rs.common.messages.Response;
+import com.rs.common.model.FileDescr;
+import javafx.concurrent.Task;
+
+import java.nio.file.Path;
+import java.nio.file.Paths;
+
+import static com.rs.common.messages.ResponseCode.COMPLETE;
+
+public class DownloadFileTask extends Task<Response> {
+    private FileDescr remoteFile;
+    private FileDescr localDir;
+
+    public DownloadFileTask(FileDescr remoteFile, FileDescr localDir) {
+        this.remoteFile = remoteFile;
+        this.localDir = localDir;
+    }
+
+    @Override
+    protected Response call() throws Exception {
+        NetworkClient networkClient = NetworkClient.getInstance();
+        Response response;
+
+        Path localPath = Paths.get(localDir.getPath(), remoteFile.getName());
+        TempFile tempFile = TempFile.getInstance(localPath);
+        try {
+            GetFileCommand getFileCommand = new GetFileCommand(remoteFile);
+            getFileCommand.setLength(DefaultConfig.FILE_CHANK_SIZE);
+            long position = 0;
+            while (true) {
+                getFileCommand.setStartPos(position);
+                do {
+                    networkClient.invoke(getFileCommand);
+                    response = networkClient.getResponse();
+                } while (response.getFilePart().damaged());
+                if (response.getResponseCode().isError()) {
+                    throw new Exception(response.getResponseCode().getMessage());
+                }
+                if (response.getFilePart().getLength() > 0) {
+                    tempFile.seek(position);
+                    tempFile.write(response.getFilePart().getBytes(), 0, response.getFilePart().getLength());
+                }
+                updateProgress(position, remoteFile.getSize());
+                position += response.getFilePart().getLength();
+                if (response.getResponseCode() == COMPLETE) break;
+            }
+            tempFile.moveToTarget();
+        } finally {
+            tempFile.close();
+        }
+        return null;
+    }
+}
+
+=====================GetRemoteDirectoryTask.java====================
+package com.rs.client.tasks;
+
+import com.rs.client.network.NetworkClient;
+import com.rs.common.messages.GetDirectoryCommand;
+import com.rs.common.messages.Response;
+import com.rs.common.model.FileDescr;
+import javafx.application.Platform;
+import javafx.collections.ObservableList;
+import javafx.concurrent.Task;
+
+import static com.rs.common.messages.ResponseCode.OK;
+
+public class GetRemoteDirectoryTask extends Task<Response> {
+    private FileDescr fileDescr;
+    private ObservableList<FileDescr> list;
+
+    public GetRemoteDirectoryTask(FileDescr fileDescr, ObservableList<FileDescr> list) {
+        this.fileDescr = fileDescr;
+        this.list = list;
+    }
+
+    @Override
+    protected Response call() throws Exception {
+        NetworkClient networkClient = NetworkClient.getInstance();
+        networkClient.invoke(new GetDirectoryCommand(fileDescr));
+        Response response = networkClient.getResponse();
+        if (response.getResponseCode() != OK) {
+            throw new Exception(response.getResponseCode().getMessage() + "\n" + response.getErrorDescription());
+        }
+        Platform.runLater(new Runnable() {
+            @Override
+            public void run() {
+                list.setAll(response.getFileDescrList());
+            }
+        });
+        return response;
+    }
+}
+
+=====================SaveFileTask.java====================
+package com.rs.client.tasks;
+
+import com.rs.client.network.NetworkClient;
+import com.rs.common.DefaultConfig;
+import com.rs.common.messages.Response;
+import com.rs.common.messages.SaveFileCommand;
+import com.rs.common.model.FileDescr;
+import com.rs.common.model.FilePart;
+import javafx.concurrent.Task;
+
+import java.io.RandomAccessFile;
+import java.nio.file.Paths;
+
+import static com.rs.common.messages.ResponseCode.FILE_CORRUPTED;
+
+public class SaveFileTask extends Task<Response> {
+    private FileDescr localFile;
+    private FileDescr remoteDir;
+
+    public SaveFileTask(FileDescr localFile, FileDescr remoteDir) {
+        this.localFile = localFile;
+        this.remoteDir = remoteDir;
+    }
+
+    @Override
+    protected Response call() throws Exception {
+        NetworkClient networkClient = NetworkClient.getInstance();
+        try (RandomAccessFile file = new RandomAccessFile(localFile.getAbsolutePath().toFile(), "r")) {
+            //перенастроим путь
+            localFile.setAbsolutePath(Paths.get(remoteDir.getPath(), localFile.getName()));
+            FilePart filePart = new FilePart();
+            SaveFileCommand saveFileCommand = new SaveFileCommand(localFile, filePart);
+            int count;
+            long position = 0;
+            while ((count = file.read(filePart.getBytes())) != -1) {
+                filePart.setStartPos(position);
+                filePart.setLength(count);
+                filePart.setDigest();
+                position += count;
+                file.seek(position);
+                Response response;
+                int tryNum = 0;
+                do {
+                    networkClient.invoke(saveFileCommand);
+                    response = networkClient.getResponse();
+                    updateProgress(position, localFile.getSize());
+                    tryNum++;
+                } while (response.getResponseCode() == FILE_CORRUPTED || tryNum > DefaultConfig.TRY_NUM);
+                if (response.getResponseCode().isError()) {
+                    throw new Exception(response.getResponseCode().getMessage());
+                }
+            }
+        }
+        return null;
+    }
+}
+
+=====================SimpleNetworkTask.java====================
+package com.rs.client.tasks;
+
+import com.rs.client.network.NetworkClient;
+import com.rs.common.messages.Command;
+import com.rs.common.messages.Response;
+import javafx.concurrent.Task;
+import org.apache.log4j.Logger;
+
+import static com.rs.common.messages.ResponseCode.OK;
+
+//Login and register
+public class SimpleNetworkTask extends Task<Response> {
+    static Logger logger = Logger.getRootLogger();
+
+    private final Command command;
+
+    public SimpleNetworkTask(Command command)  {
+        this.command = command;
+    }
+
+    @Override
+    protected Response call() throws Exception {
+        NetworkClient networkClient = NetworkClient.getInstance();
+        networkClient.invoke(command);
+        Response response = networkClient.getResponse();
+        if (response.getResponseCode() != OK) {
+            logger.info(response.getResponseCode().getMessage());
+            throw new Exception(response.getResponseCode().getMessage());
+        }
+        return response;
+    }
+}
+
+=====================loginForm.fxml====================
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.PasswordField?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.layout.ColumnConstraints?>
+<?import javafx.scene.layout.GridPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.RowConstraints?>
+
+<GridPane fx:id="form" alignment="center" hgap="10" vgap="10" xmlns="http://javafx.com/javafx/8.0.172-ea" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.rs.client.LoginController">
+    <Label text="User Name:" GridPane.columnIndex="0" GridPane.rowIndex="1" />
+
+    <TextField fx:id="loginField" GridPane.columnIndex="1" GridPane.rowIndex="1" />
+
+    <Label text="Password:" GridPane.columnIndex="0" GridPane.rowIndex="2" />
+
+    <PasswordField fx:id="passwordField" GridPane.columnIndex="1" GridPane.rowIndex="2" />
+
+    <HBox alignment="bottom_right" spacing="10" GridPane.columnIndex="1" GridPane.rowIndex="4">
+        <Button fx:id="button" onAction="#handleSubmitButton" onKeyPressed="#handleEnterButton" text="Login" />
+        <Button onAction="#handleSubmitRegisterButton" text="Register" />
+    </HBox>
+    <Label fx:id="errorMsg" text="" textAlignment="CENTER" textFill="#f81f07" visible="false" wrapText="true" GridPane.columnSpan="2147483647" GridPane.rowIndex="5">
+      <padding>
+         <Insets left="5.0" right="5.0" />
+      </padding></Label>
+   <columnConstraints>
+      <ColumnConstraints />
+      <ColumnConstraints />
+   </columnConstraints>
+   <rowConstraints>
+      <RowConstraints />
+      <RowConstraints />
+      <RowConstraints />
+      <RowConstraints />
+      <RowConstraints />
+      <RowConstraints minHeight="10.0" prefHeight="30.0" />
+   </rowConstraints>
+</GridPane>
+
+=====================mainForm.fxml====================
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.SplitPane?>
+<?import javafx.scene.control.TableColumn?>
+<?import javafx.scene.control.TableView?>
+<?import javafx.scene.layout.AnchorPane?>
+<?import javafx.scene.layout.ColumnConstraints?>
+<?import javafx.scene.layout.GridPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.RowConstraints?>
+<?import javafx.scene.layout.VBox?>
+
+<VBox maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="400.0" prefWidth="600.0" xmlns="http://javafx.com/javafx/8.0.172-ea" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.rs.client.MainFormController">
+    <children>
+      <HBox alignment="CENTER" layoutX="10.0" layoutY="349.0" maxHeight="-Infinity" minHeight="-Infinity">
+         <padding>
+            <Insets bottom="1.0" left="1.0" right="1.0" top="1.0" />
+         </padding>
+         <children>
+            <Label text="Локальное хранилище" HBox.hgrow="ALWAYS">
+               <padding>
+                  <Insets right="40.0" />
+               </padding>
+               <HBox.margin>
+                  <Insets right="40.0" />
+               </HBox.margin></Label>
+            <Label text="Удаленное хранилище" HBox.hgrow="ALWAYS">
+               <padding>
+                  <Insets left="40.0" />
+               </padding>
+               <HBox.margin>
+                  <Insets left="40.0" />
+               </HBox.margin></Label>
+         </children>
+      </HBox>
+        <SplitPane dividerPositions="0.5" prefHeight="160.0" prefWidth="200.0" VBox.vgrow="ALWAYS">
+            <items>
+                <AnchorPane maxHeight="1.7976931348623157E308" maxWidth="1.7976931348623157E308" minHeight="0.0" minWidth="0.0">
+                    <children>
+                        <TableView fx:id="localFilesTable" maxHeight="1.7976931348623157E308" maxWidth="1.7976931348623157E308" onKeyReleased="#handleLocalTableKey" onMouseClicked="#handleOnLocalTableClick" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0">
+                            <placeholder> </placeholder>
+                            <columns>
+                                <TableColumn editable="false" maxWidth="30.0" minWidth="30.0" prefWidth="30.0" resizable="false" sortable="false" text="" />
+                                <TableColumn prefWidth="200.0" sortable="false" text="Название" />
+                                <TableColumn editable="false" prefWidth="75.0" sortable="false" style="-fx-alignment: CENTER-RIGHT;" text="размер" />
+                            </columns>
+                     <columnResizePolicy>
+                        <TableView fx:constant="CONSTRAINED_RESIZE_POLICY" />
+                     </columnResizePolicy>
+                        </TableView>
+                    </children>
+                </AnchorPane>
+                <AnchorPane maxHeight="1.7976931348623157E308" maxWidth="1.7976931348623157E308" minHeight="0.0" minWidth="0.0" HBox.hgrow="ALWAYS">
+                    <children>
+                        <TableView fx:id="remoteFilesTable" maxHeight="1.7976931348623157E308" maxWidth="1.7976931348623157E308" onKeyReleased="#handleRemoteTableKey" onMouseClicked="#handleOnRemoteTableClick" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0">
+                            <placeholder> </placeholder>
+                            <columns>
+                                <TableColumn editable="false" maxWidth="30.0" minWidth="30.0" prefWidth="30.0" resizable="false" sortable="false" text="" />
+                                <TableColumn prefWidth="200.0" sortable="false" text="Название" />
+                                <TableColumn editable="false" prefWidth="75.0" sortable="false" style="-fx-alignment: CENTER-RIGHT;" text="размер" />
+                            </columns>
+                     <columnResizePolicy>
+                        <TableView fx:constant="CONSTRAINED_RESIZE_POLICY" />
+                     </columnResizePolicy>
+                        </TableView>
+                    </children>
+                </AnchorPane>
+            </items>
+        </SplitPane>
+      <HBox minHeight="-Infinity" prefHeight="20.0" prefWidth="200.0">
+         <children>
+            <Label fx:id="errorMsg" textFill="#ff1111">
+               <HBox.margin>
+                  <Insets />
+               </HBox.margin>
+               <padding>
+                  <Insets left="2.0" right="2.0" />
+               </padding></Label>
+         </children></HBox>
+      <GridPane alignment="CENTER" layoutX="10.0" layoutY="331.0">
+         <columnConstraints>
+            <ColumnConstraints />
+            <ColumnConstraints />
+            <ColumnConstraints />
+         </columnConstraints>
+         <rowConstraints>
+            <RowConstraints />
+         </rowConstraints>
+         <padding>
+            <Insets bottom="2.0" left="2.0" right="2.0" top="2.0" />
+         </padding>
+         <children>
+            <Label text="F5 - Копировать | F8 - Удалить | F6 - Переименовать" />
+         </children>
+      </GridPane>
+    </children>
+</VBox>
+
+=====================progressForm.fxml====================
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.ProgressBar?>
+<?import javafx.scene.layout.VBox?>
+
+<VBox minHeight="-Infinity" minWidth="-Infinity" prefHeight="35.0" prefWidth="300.0" xmlns="http://javafx.com/javafx/8.0.172-ea" xmlns:fx="http://javafx.com/fxml/1">
+    <children>
+        <Label fx:id="label" VBox.vgrow="ALWAYS">
+         <padding>
+            <Insets left="3.0" right="3.0" />
+         </padding></Label>
+        <ProgressBar fx:id="progressBar" minHeight="-Infinity" minWidth="-Infinity" prefWidth="300.0" progress="0.0" VBox.vgrow="ALWAYS">
+         <padding>
+            <Insets left="3.0" right="3.0" />
+         </padding></ProgressBar>
+    </children>
+</VBox>
+
+=====================registerForm.fxml====================
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.PasswordField?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.layout.ColumnConstraints?>
+<?import javafx.scene.layout.GridPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.RowConstraints?>
+
+<GridPane fx:id="form" alignment="center" hgap="10" vgap="10" xmlns="http://javafx.com/javafx/8.0.172-ea" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.rs.client.RegisterController">
+    <Label text="User Name:" GridPane.columnIndex="0" GridPane.rowIndex="1" />
+
+    <TextField fx:id="loginField" GridPane.columnIndex="1" GridPane.rowIndex="1" />
+
+    <Label text="Password:" GridPane.columnIndex="0" GridPane.rowIndex="2" />
+
+    <PasswordField fx:id="passwordField" GridPane.columnIndex="1" GridPane.rowIndex="2" />
+
+    <Label text="Email:" GridPane.columnIndex="0" GridPane.rowIndex="3" />
+
+    <TextField fx:id="email" GridPane.columnIndex="1" GridPane.rowIndex="3" />
+
+    <HBox alignment="bottom_right" spacing="10" GridPane.columnIndex="1" GridPane.rowIndex="4">
+        <Button fx:id="button" onAction="#handleSubmitButton" text="SignIn" />
+    </HBox>
+    <Label fx:id="errorMsg" text="" textAlignment="CENTER" textFill="#f81f07" visible="false" wrapText="true" GridPane.columnSpan="2147483647" GridPane.rowIndex="5">
+      <padding>
+         <Insets left="5.0" right="5.0" />
+      </padding></Label>
+   <columnConstraints>
+      <ColumnConstraints />
+      <ColumnConstraints />
+   </columnConstraints>
+   <rowConstraints>
+      <RowConstraints />
+      <RowConstraints />
+      <RowConstraints />
+      <RowConstraints />
+      <RowConstraints />
+      <RowConstraints minHeight="10.0" prefHeight="30.0" />
+   </rowConstraints>
+</GridPane>
+
+=====================loginForm.fxml====================
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.PasswordField?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.layout.ColumnConstraints?>
+<?import javafx.scene.layout.GridPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.RowConstraints?>
+
+<GridPane fx:id="form" alignment="center" hgap="10" vgap="10" xmlns="http://javafx.com/javafx/8.0.172-ea" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.rs.client.LoginController">
+    <Label text="User Name:" GridPane.columnIndex="0" GridPane.rowIndex="1" />
+
+    <TextField fx:id="loginField" GridPane.columnIndex="1" GridPane.rowIndex="1" />
+
+    <Label text="Password:" GridPane.columnIndex="0" GridPane.rowIndex="2" />
+
+    <PasswordField fx:id="passwordField" GridPane.columnIndex="1" GridPane.rowIndex="2" />
+
+    <HBox alignment="bottom_right" spacing="10" GridPane.columnIndex="1" GridPane.rowIndex="4">
+        <Button fx:id="button" onAction="#handleSubmitButton" onKeyPressed="#handleEnterButton" text="Login" />
+        <Button onAction="#handleSubmitRegisterButton" text="Register" />
+    </HBox>
+    <Label fx:id="errorMsg" text="" textAlignment="CENTER" textFill="#f81f07" visible="false" wrapText="true" GridPane.columnSpan="2147483647" GridPane.rowIndex="5">
+      <padding>
+         <Insets left="5.0" right="5.0" />
+      </padding></Label>
+   <columnConstraints>
+      <ColumnConstraints />
+      <ColumnConstraints />
+   </columnConstraints>
+   <rowConstraints>
+      <RowConstraints />
+      <RowConstraints />
+      <RowConstraints />
+      <RowConstraints />
+      <RowConstraints />
+      <RowConstraints minHeight="10.0" prefHeight="30.0" />
+   </rowConstraints>
+</GridPane>
+
+=====================mainForm.fxml====================
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.SplitPane?>
+<?import javafx.scene.control.TableColumn?>
+<?import javafx.scene.control.TableView?>
+<?import javafx.scene.layout.AnchorPane?>
+<?import javafx.scene.layout.ColumnConstraints?>
+<?import javafx.scene.layout.GridPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.RowConstraints?>
+<?import javafx.scene.layout.VBox?>
+
+<VBox maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="400.0" prefWidth="600.0" xmlns="http://javafx.com/javafx/8.0.172-ea" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.rs.client.MainFormController">
+    <children>
+      <HBox alignment="CENTER" layoutX="10.0" layoutY="349.0" maxHeight="-Infinity" minHeight="-Infinity">
+         <padding>
+            <Insets bottom="1.0" left="1.0" right="1.0" top="1.0" />
+         </padding>
+         <children>
+            <Label text="Локальное хранилище" HBox.hgrow="ALWAYS">
+               <padding>
+                  <Insets right="40.0" />
+               </padding>
+               <HBox.margin>
+                  <Insets right="40.0" />
+               </HBox.margin></Label>
+            <Label text="Удаленное хранилище" HBox.hgrow="ALWAYS">
+               <padding>
+                  <Insets left="40.0" />
+               </padding>
+               <HBox.margin>
+                  <Insets left="40.0" />
+               </HBox.margin></Label>
+         </children>
+      </HBox>
+        <SplitPane dividerPositions="0.5" prefHeight="160.0" prefWidth="200.0" VBox.vgrow="ALWAYS">
+            <items>
+                <AnchorPane maxHeight="1.7976931348623157E308" maxWidth="1.7976931348623157E308" minHeight="0.0" minWidth="0.0">
+                    <children>
+                        <TableView fx:id="localFilesTable" maxHeight="1.7976931348623157E308" maxWidth="1.7976931348623157E308" onKeyReleased="#handleLocalTableKey" onMouseClicked="#handleOnLocalTableClick" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0">
+                            <placeholder> </placeholder>
+                            <columns>
+                                <TableColumn editable="false" maxWidth="30.0" minWidth="30.0" prefWidth="30.0" resizable="false" sortable="false" text="" />
+                                <TableColumn prefWidth="200.0" sortable="false" text="Название" />
+                                <TableColumn editable="false" prefWidth="75.0" sortable="false" style="-fx-alignment: CENTER-RIGHT;" text="размер" />
+                            </columns>
+                     <columnResizePolicy>
+                        <TableView fx:constant="CONSTRAINED_RESIZE_POLICY" />
+                     </columnResizePolicy>
+                        </TableView>
+                    </children>
+                </AnchorPane>
+                <AnchorPane maxHeight="1.7976931348623157E308" maxWidth="1.7976931348623157E308" minHeight="0.0" minWidth="0.0" HBox.hgrow="ALWAYS">
+                    <children>
+                        <TableView fx:id="remoteFilesTable" maxHeight="1.7976931348623157E308" maxWidth="1.7976931348623157E308" onKeyReleased="#handleRemoteTableKey" onMouseClicked="#handleOnRemoteTableClick" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0">
+                            <placeholder> </placeholder>
+                            <columns>
+                                <TableColumn editable="false" maxWidth="30.0" minWidth="30.0" prefWidth="30.0" resizable="false" sortable="false" text="" />
+                                <TableColumn prefWidth="200.0" sortable="false" text="Название" />
+                                <TableColumn editable="false" prefWidth="75.0" sortable="false" style="-fx-alignment: CENTER-RIGHT;" text="размер" />
+                            </columns>
+                     <columnResizePolicy>
+                        <TableView fx:constant="CONSTRAINED_RESIZE_POLICY" />
+                     </columnResizePolicy>
+                        </TableView>
+                    </children>
+                </AnchorPane>
+            </items>
+        </SplitPane>
+      <HBox minHeight="-Infinity" prefHeight="20.0" prefWidth="200.0">
+         <children>
+            <Label fx:id="errorMsg" textFill="#ff1111">
+               <HBox.margin>
+                  <Insets />
+               </HBox.margin>
+               <padding>
+                  <Insets left="2.0" right="2.0" />
+               </padding></Label>
+         </children></HBox>
+      <GridPane alignment="CENTER" layoutX="10.0" layoutY="331.0">
+         <columnConstraints>
+            <ColumnConstraints />
+            <ColumnConstraints />
+            <ColumnConstraints />
+         </columnConstraints>
+         <rowConstraints>
+            <RowConstraints />
+         </rowConstraints>
+         <padding>
+            <Insets bottom="2.0" left="2.0" right="2.0" top="2.0" />
+         </padding>
+         <children>
+            <Label text="F5 - Копировать | F8 - Удалить | F6 - Переименовать" />
+         </children>
+      </GridPane>
+    </children>
+</VBox>
+
+=====================progressForm.fxml====================
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.ProgressBar?>
+<?import javafx.scene.layout.VBox?>
+
+<VBox minHeight="-Infinity" minWidth="-Infinity" prefHeight="35.0" prefWidth="300.0" xmlns="http://javafx.com/javafx/8.0.172-ea" xmlns:fx="http://javafx.com/fxml/1">
+    <children>
+        <Label fx:id="label" VBox.vgrow="ALWAYS">
+         <padding>
+            <Insets left="3.0" right="3.0" />
+         </padding></Label>
+        <ProgressBar fx:id="progressBar" minHeight="-Infinity" minWidth="-Infinity" prefWidth="300.0" progress="0.0" VBox.vgrow="ALWAYS">
+         <padding>
+            <Insets left="3.0" right="3.0" />
+         </padding></ProgressBar>
+    </children>
+</VBox>
+
+=====================registerForm.fxml====================
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.PasswordField?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.layout.ColumnConstraints?>
+<?import javafx.scene.layout.GridPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.RowConstraints?>
+
+<GridPane fx:id="form" alignment="center" hgap="10" vgap="10" xmlns="http://javafx.com/javafx/8.0.172-ea" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.rs.client.RegisterController">
+    <Label text="User Name:" GridPane.columnIndex="0" GridPane.rowIndex="1" />
+
+    <TextField fx:id="loginField" GridPane.columnIndex="1" GridPane.rowIndex="1" />
+
+    <Label text="Password:" GridPane.columnIndex="0" GridPane.rowIndex="2" />
+
+    <PasswordField fx:id="passwordField" GridPane.columnIndex="1" GridPane.rowIndex="2" />
+
+    <Label text="Email:" GridPane.columnIndex="0" GridPane.rowIndex="3" />
+
+    <TextField fx:id="email" GridPane.columnIndex="1" GridPane.rowIndex="3" />
+
+    <HBox alignment="bottom_right" spacing="10" GridPane.columnIndex="1" GridPane.rowIndex="4">
+        <Button fx:id="button" onAction="#handleSubmitButton" text="SignIn" />
+    </HBox>
+    <Label fx:id="errorMsg" text="" textAlignment="CENTER" textFill="#f81f07" visible="false" wrapText="true" GridPane.columnSpan="2147483647" GridPane.rowIndex="5">
+      <padding>
+         <Insets left="5.0" right="5.0" />
+      </padding></Label>
+   <columnConstraints>
+      <ColumnConstraints />
+      <ColumnConstraints />
+   </columnConstraints>
+   <rowConstraints>
+      <RowConstraints />
+      <RowConstraints />
+      <RowConstraints />
+      <RowConstraints />
+      <RowConstraints />
+      <RowConstraints minHeight="10.0" prefHeight="30.0" />
+   </rowConstraints>
+</GridPane>
+
+=====================DefaultConfig.java====================
+package com.rs.common;
+
+import org.sqlite.JDBC;
+
+public class DefaultConfig {
+    public static final String HOST = "127.0.0.1";//"192.168.1.42";
+    public static final int PORT = 3000;
+    public static final int NETWORK_QUEUE_SIZE = 1;
+    public static final int MAX_OBJ_SIZE = 1024 * 1024 * 10;
+    public static final int FILE_CHANK_SIZE = 1024 * 1024 * 9;
+    //client
+    public static final String CLIENT_ROOT_PATH = "E:\\cloud\\client";
+    //server
+    public static final int WAITING_CONNECTION_REQUESTS = 128;
+    public static final String SERVER_ROOT_PATH = "E:\\cloud\\server";
+    public static final String PART_FILE_EXT = ".part";
+    public static final int POOL = 5;
+    //server DB
+    public static final String DRIVER_NAME = "org.sqlite.JDBC";
+    public static final String DB_NAME = JDBC.PREFIX + "users.db";
+    public static final int TRY_NUM = 10;
+}
+
+=====================FileUtilities.java====================
+package com.rs.common;
+
+import com.rs.common.model.FileDescr;
+
+import java.io.IOException;
+import java.nio.file.DirectoryStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.ArrayList;
+
+public class FileUtilities {
+    public static Path getFilePath(Path rootPath, String path) {
+        return getFilePath(rootPath.toString(), path);
+    }
+
+    public static Path getFilePath(String rootPath, String path) {
+        Path p = Paths.get(rootPath, path).normalize();
+        return p.toAbsolutePath();
+    }
+
+    public static ArrayList<FileDescr> getRelativeDirectoryList(FileDescr dirDescriptor) throws IOException {
+        ArrayList<FileDescr> filesList = new ArrayList<>();
+        filesList.add(dirDescriptor.getUpDirectory());
+        DirectoryStream<Path> stream = Files.newDirectoryStream(dirDescriptor.getAbsolutePath());
+        for (Path path : stream) {
+            FileDescr fileDescr = new FileDescr(dirDescriptor.getRoot());
+            fileDescr.setAbsolutePath(path);
+            if (Files.isDirectory(path)) {
+                fileDescr.setDirectory(true);
+            } else {
+                fileDescr.setDirectory(false);
+                fileDescr.setSize(Files.size(path));
+            }
+            filesList.add(fileDescr);
+        }
+        return filesList;
+    }
+
+
+
+    public static String changeFileName(String path, String name) {
+        Path parent = Paths.get(path).getParent();
+        if (parent != null)
+            return parent.resolve(name).toString();
+        else
+            return name;
+    }
+}
+
+=====================Command.java====================
+package com.rs.common.messages;
+
+import java.io.Serializable;
+
+public abstract class Command implements Serializable {
+    private static final long serialVersionUID = 4987445173081793295L;
+
+}
+
+=====================DeleteFileCommand.java====================
+package com.rs.common.messages;
+
+import com.rs.common.model.FileDescr;
+
+public class DeleteFileCommand extends FileCommand {
+    private static final long serialVersionUID = 4060702193752704163L;
+
+    public DeleteFileCommand(FileDescr fileDescr) {
+        this.fileDescr = fileDescr;
+    }
+}
+
+=====================FileCommand.java====================
+package com.rs.common.messages;
+
+import com.rs.common.model.FileDescr;
+
+public abstract class FileCommand extends Command{
+
+    private static final long serialVersionUID = 2892063668890502560L;
+    protected FileDescr fileDescr;
+
+    public FileDescr getFileDescr() {
+        return fileDescr;
+    }
+
+    public void setFileDescr(FileDescr fileDescr) {
+        this.fileDescr = fileDescr;
+    }
+}
+
+=====================GetDirectoryCommand.java====================
+package com.rs.common.messages;
+
+
+import com.rs.common.model.FileDescr;
+
+public class GetDirectoryCommand extends FileCommand{
+    private static final long serialVersionUID = 5439113326478580430L;
+
+    public GetDirectoryCommand(FileDescr fileDescr) {
+        this.fileDescr = fileDescr;
+    }
+}
+
+=====================GetFileCommand.java====================
+package com.rs.common.messages;
+
+import com.rs.common.model.FileDescr;
+
+public class GetFileCommand extends FileCommand {
+
+    private static final long serialVersionUID = 7797172053116729390L;
+
+    private long startPos;
+    private int length;
+
+    public long getStartPos() {
+        return startPos;
+    }
+
+    public void setStartPos(long startPos) {
+        this.startPos = startPos;
+    }
+
+    public int getLength() {
+        return length;
+    }
+
+    public void setLength(int length) {
+        this.length = length;
+    }
+
+    public GetFileCommand(FileDescr fileDescr) {
+        this.fileDescr = fileDescr;
+    }
+
+}
+
+=====================LoginCommand.java====================
+package com.rs.common.messages;
+
+
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import javax.xml.bind.DatatypeConverter;
+
+public class LoginCommand extends Command {
+    private static final long serialVersionUID = 6277641625152064169L;
+    private String login;
+    private String passwordHash;
+
+    public LoginCommand(String login, String password) {
+        this.login = login;
+        this.passwordHash = generateHash(password);
+    }
+
+    public String getLogin() {
+        return login;
+    }
+
+    public void setLogin(String login) {
+        this.login = login;
+    }
+
+    public String getPasswordHash() {
+        return passwordHash;
+    }
+
+    private String generateHash(String password) {
+        try {
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
+            md.update(password.getBytes());
+            byte[] digest = md.digest();
+            return DatatypeConverter.printBase64Binary(digest);
+        } catch (NoSuchAlgorithmException e) {
+            e.printStackTrace();
+        }
+        return null;
+    }
+
+}
+
+
+=====================MoveCommand.java====================
+package com.rs.common.messages;
+
+import com.rs.common.model.FileDescr;
+
+
+public class MoveCommand extends FileCommand {
+    private static final long serialVersionUID = 2745630059078720834L;
+    private FileDescr newFileDescr;
+
+    public MoveCommand(FileDescr fileDescr, FileDescr newFileDescr) {
+        this.fileDescr = fileDescr;
+        this.newFileDescr = newFileDescr;
+    }
+
+    public FileDescr getNewFileDescr() {
+        return newFileDescr;
+    }
+
+    public void setNewFileDescr(FileDescr newFileDescr) {
+        this.newFileDescr = newFileDescr;
+    }
+
+}
+
+=====================Response.java====================
+package com.rs.common.messages;
+
+import com.rs.common.model.FileDescr;
+import com.rs.common.model.FilePart;
+
+import java.io.Serializable;
+import java.util.ArrayList;
+
+public class Response implements Serializable {
+    private static final long serialVersionUID = -8700849836502485019L;
+
+    private Response() {
+    }
+
+    private ResponseCode responseCode;
+
+    public String getErrorDescription() {
+        return errorDescription;
+    }
+
+    public void setErrorDescription(String errorDescription) {
+        this.errorDescription = errorDescription;
+    }
+
+    private String errorDescription;
+
+    public ResponseCode getResponseCode() {
+        return responseCode;
+    }
+
+    public void setResponseCode(ResponseCode responseCode) {
+        this.responseCode = responseCode;
+    }
+
+    public ArrayList<FileDescr> getFileDescrList() {
+        return fileDescrList;
+    }
+
+    public void setFileDescrList(ArrayList<FileDescr> fileDescrList) {
+        this.fileDescrList = fileDescrList;
+    }
+
+    public FilePart getFilePart() {
+        return filePart;
+    }
+
+    public void setFilePart(FilePart filePart) {
+        this.filePart = filePart;
+    }
+
+    private ArrayList<FileDescr> fileDescrList;
+    private FilePart filePart;
+
+    public static Response getInstance() {
+        return new Response();
+    }
+}
+
+=====================ResponseCode.java====================
+package com.rs.common.messages;
+
+public enum ResponseCode {
+    ACCESS_DENIED("Доступ запрещен"),
+    ALREADY_LOGGED_IN("Уже залогинен", false),
+    DIRECTORY_NOT_FOUND("Директория не найдена"),
+    FILE_NOT_FOUND("Файл не найден"),
+    NO_ACCESS("Нет доступа"),
+    INVALID_LOGIN("Неверный логин или пароль"),
+    OK("", false),
+    CANNOT_SAVE_FILE("Невозможно сохранить файл"),
+    FILE_CORRUPTED("Файл поврежден"),
+    BUSY("Сервер занят"),
+    COMPLETE("Передача закончена",false),
+    CANNOT_DELETE_FILE("Нельзя удалить файл"),
+    ERROR("Системная ошибка"),
+    LOGIN_IS_BUSY("Логин занят");
+
+
+    public String getMessage() {
+        return message;
+    }
+
+    public boolean isError() {
+        return isError;
+    }
+
+    private String message;
+    private boolean isError = true;
+
+    ResponseCode(String message) {
+        this.message = message;
+    }
+
+    ResponseCode(String message, boolean isError) {
+        this.message = message;
+        this.isError = isError;
+    }
+
+
+}
+
+=====================SaveFileCommand.java====================
+package com.rs.common.messages;
+
+import com.rs.common.model.FileDescr;
+import com.rs.common.model.FilePart;
+
+public class SaveFileCommand extends FileCommand {
+    private static final long serialVersionUID = -114964002600995666L;
+    private FilePart filePart;
+
+    public FilePart getFilePart() {
+        return filePart;
+    }
+
+    public void setFilePart(FilePart filePart) {
+        this.filePart = filePart;
+    }
+
+    public SaveFileCommand(FileDescr fileDescr, FilePart filePart) {
+        this.fileDescr = fileDescr;
+        this.filePart = filePart;
+    }
+
+}
+
+=====================SignInCommand.java====================
+package com.rs.common.messages;
+
+
+public class SignInCommand extends LoginCommand {
+    private static final long serialVersionUID = 6231292321797642979L;
+    private String email;
+
+    public String getEmail() {
+        return email;
+    }
+
+    public SignInCommand(String login, String password, String email) {
+        super(login, password);
+        this.email = email;
+    }
+
+}
+
+
+=====================FileDescr.java====================
+package com.rs.common.model;
+
+import com.rs.common.FileUtilities;
+
+import java.io.Serializable;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.Objects;
+
+//все есть файл
+public class FileDescr implements Serializable {
+    private static final long serialVersionUID = 571710974311506623L;
+    private String path = "";
+    private transient String root = "";
+    private Long size;
+    private boolean directory;
+    private boolean isUp;
+
+    public boolean isUp() {
+        return isUp;
+    }
+
+    public void setUp(boolean up) {
+        isUp = up;
+    }
+
+    private final String UP_SIGN = "...";
+
+    public FileDescr() {
+        path = "";
+        root = "";
+    }
+
+    public String getRoot() {
+        return root;
+    }
+
+    public void setRoot(String root) {
+        this.root = root;
+    }
+
+    public void setRoot(Path root) {
+        this.root = root.toString();
+    }
+
+    public Path getAbsolutePath() {
+        if (root == null || root.equals(""))
+            return Paths.get(path);
+        else
+            return FileUtilities.getFilePath(root, path);
+    }
+
+    public void setAbsolutePath(Path path) {
+        if (root == null || root.equals("")) {
+            setPath(path);
+        } else
+            setPath(Paths.get(root).relativize(path).toString());
+    }
+
+    public FileDescr(Path root) {
+        setRoot(root);
+    }
+
+    public FileDescr(String root) {
+        setRoot(root);
+    }
+
+    public boolean isDirectory() {
+        return directory;
+    }
+
+    public void setDirectory(boolean directory) {
+        this.directory = directory;
+    }
+
+    public String getName() {
+        if (isUp)
+            return UP_SIGN;
+        else
+            return Paths.get(path).getFileName().toString();
+    }
+
+    public FileDescr getUpDirectory() {
+        FileDescr upDirectory;
+        upDirectory = new FileDescr(getRoot());
+        upDirectory.setPath(getParent());
+        upDirectory.setDirectory(true);
+        upDirectory.setUp(true);
+        return upDirectory;
+    }
+
+    public String getPath() {
+        return path;
+    }
+
+    public void setPath(String path) {
+        this.path = Paths.get(path).normalize().toString();
+    }
+
+    public void setPath(Path path) {
+        this.path = path.toString();
+    }
+
+
+    public Long getSize() {
+        return size;
+    }
+
+    public void setSize(Long size) {
+        this.size = size;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        FileDescr that = (FileDescr) o;
+        return Objects.equals(path, that.path);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(path);
+    }
+
+    @Override
+    public String toString() {
+        return "FileDescr{" +
+                ", path='" + path + '\'' +
+                ", size=" + size +
+                ", isDirectory=" + directory +
+                '}';
+    }
+
+    public String getParent() {
+        if (!path.equals("")) {
+            Path parent = Paths.get(path).getParent();
+            if (parent != null) {
+                return parent.toString();
+            }
+        }
+        return "";
+    }
+}
+
+=====================FilePart.java====================
+package com.rs.common.model;
+
+
+import com.rs.common.DefaultConfig;
+
+import java.io.RandomAccessFile;
+import java.io.Serializable;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+
+public class FilePart implements Serializable {
+
+    private static final long serialVersionUID = 1623427494698957562L;
+    //TODO hash
+
+    private byte[] bytes;
+    private long startPos;
+    private String hash;
+    private int length;
+    public int getLength() {
+        return length;
+    }
+
+
+
+    public void setLength(int length) {
+        this.length = length;
+    }
+
+
+
+    public FilePart() {
+        bytes = new byte[DefaultConfig.FILE_CHANK_SIZE];
+    }
+
+    public long getStartPos() {
+        return startPos;
+    }
+
+    public void setStartPos(long startPos) {
+        this.startPos = startPos;
+    }
+
+    public byte[] getBytes() {
+        return bytes;
+    }
+
+    public void setDigest() {
+        this.hash = getDigest();
+    }
+
+    public boolean damaged() {
+        if (hash == null || hash.equals(getDigest()))
+            return false;
+        else
+            return true;
+    }
+
+    private String getDigest() {
+        MessageDigest md = null;
+        try {
+            md = MessageDigest.getInstance("MD5");
+            md.update(getBytes());
+            return md.toString();
+        } catch (NoSuchAlgorithmException e) {
+            return null;
+        }
+    }
+
+    public void fill(RandomAccessFile file) {
+
+    }
+
+}
+
+=====================TempFile.java====================
+package com.rs.common;
+
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.RandomAccessFile;
+import java.nio.file.FileAlreadyExistsException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+
+public class TempFile extends RandomAccessFile {
+    private Path tempFilePath;
+    private Path targetPath;
+
+    public TempFile(String name, String mode) throws FileNotFoundException {
+        super(name, mode);
+    }
+
+    public TempFile(File file, String mode) throws FileNotFoundException {
+        super(file, mode);
+    }
+
+    public static TempFile getInstance(Path path) throws IOException {
+        Path tempFilePath = Paths.get(path.toString() + DefaultConfig.PART_FILE_EXT);
+        if (!Files.exists(tempFilePath)) {
+            System.out.println("create " + tempFilePath.getParent());
+            try {
+                Files.createDirectory(tempFilePath.getParent());
+            } catch (FileAlreadyExistsException e) {
+                System.out.println("Директория "+ tempFilePath.getParent() +" уже существует");
+            }
+        }
+        Files.deleteIfExists(tempFilePath);
+        TempFile t = new TempFile(tempFilePath.toFile(), "rw");
+        t.targetPath = path;
+        t.tempFilePath = tempFilePath;
+        return t;
+    }
+
+
+    public Path getTempFilePath() {
+        return tempFilePath;
+    }
+
+    public Path getTargetPath() {
+        return targetPath;
+    }
+
+    public void moveToTarget() throws IOException {
+        close();
+        if (Files.exists(targetPath))
+            Files.delete(targetPath);
+        Files.move(tempFilePath, targetPath);
+    }
+
+}
+
+=====================LoginCommandTest.java====================
+package com.rs.common.messages;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+import java.security.NoSuchAlgorithmException;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+class LoginCommandTest {
+    LoginCommand loginCommand;
+
+    @BeforeEach
+    void before() {
+        loginCommand = new LoginCommand("login1", "hello world!");
+    }
+
+    @Test
+    void getLogin() {
+        assertEquals("login1", loginCommand.getLogin());
+    }
+
+    @Test
+    void setLogin() {
+        loginCommand.setLogin("login2");
+        assertEquals("login2", loginCommand.getLogin());
+    }
+
+    @Test
+    void getPasswordHash() {
+        assertEquals("dQnlvaDHYtK6x/kNdYtbImP6Acy8VCq1498WO+CObKk=", loginCommand.getPasswordHash());
+    }
+}
+
+=====================loginForm.fxml====================
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.PasswordField?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.layout.ColumnConstraints?>
+<?import javafx.scene.layout.GridPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.RowConstraints?>
+
+<GridPane fx:id="loginForm" alignment="center" hgap="10" vgap="10" xmlns:fx="http://javafx.com/fxml/1" xmlns="http://javafx.com/javafx/8.0.121" fx:controller="com.rs.client.LoginController">
+    <Label fx:id="loginField" text="User Name:" GridPane.columnIndex="0" GridPane.rowIndex="1" />
+
+    <TextField GridPane.columnIndex="1" GridPane.rowIndex="1" />
+
+    <Label text="Password:" GridPane.columnIndex="0" GridPane.rowIndex="2" />
+
+    <PasswordField fx:id="passwordField" GridPane.columnIndex="1" GridPane.rowIndex="2" />
+
+    <HBox alignment="bottom_right" spacing="10" GridPane.columnIndex="1" GridPane.rowIndex="4">
+        <Button onAction="#handleSubmitButtonAction" text="Sign In" />
+    </HBox>
+   <columnConstraints>
+      <ColumnConstraints />
+      <ColumnConstraints />
+   </columnConstraints>
+   <rowConstraints>
+      <RowConstraints />
+      <RowConstraints />
+      <RowConstraints />
+      <RowConstraints />
+      <RowConstraints />
+   </rowConstraints>
+</GridPane>
+
+=====================mainForm.fxml====================
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.SplitPane?>
+<?import javafx.scene.control.TableColumn?>
+<?import javafx.scene.control.TableView?>
+<?import javafx.scene.layout.AnchorPane?>
+<?import javafx.scene.layout.ColumnConstraints?>
+<?import javafx.scene.layout.GridPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.RowConstraints?>
+<?import javafx.scene.layout.VBox?>
+
+<VBox maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="400.0" prefWidth="600.0" xmlns="http://javafx.com/javafx/8.0.121" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.rs.client.MainFormController">
+    <children>
+        <SplitPane dividerPositions="0.5" prefHeight="160.0" prefWidth="200.0" VBox.vgrow="ALWAYS">
+            <items>
+                <AnchorPane maxHeight="1.7976931348623157E308" maxWidth="1.7976931348623157E308" minHeight="0.0" minWidth="0.0">
+                    <children>
+                        <TableView maxHeight="1.7976931348623157E308" maxWidth="1.7976931348623157E308" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0">
+                            <columns>
+                                <TableColumn maxWidth="30.0" minWidth="30.0" prefWidth="30.0" resizable="false" text="" />
+                                <TableColumn prefWidth="200.0" text="Название" />
+                                <TableColumn prefWidth="75.0" text="размер" />
+                            </columns>
+                     <columnResizePolicy>
+                        <TableView fx:constant="CONSTRAINED_RESIZE_POLICY" />
+                     </columnResizePolicy>
+                        </TableView>
+                    </children>
+                </AnchorPane>
+                <AnchorPane maxHeight="1.7976931348623157E308" maxWidth="1.7976931348623157E308" minHeight="0.0" minWidth="0.0" HBox.hgrow="ALWAYS">
+                    <children>
+                        <TableView maxHeight="1.7976931348623157E308" maxWidth="1.7976931348623157E308" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0">
+                            <columns>
+                                <TableColumn maxWidth="30.0" minWidth="30.0" prefWidth="30.0" resizable="false" text="" />
+                                <TableColumn prefWidth="200.0" text="Название" />
+                                <TableColumn prefWidth="75.0" text="размер" />
+                            </columns>
+                     <columnResizePolicy>
+                        <TableView fx:constant="CONSTRAINED_RESIZE_POLICY" />
+                     </columnResizePolicy>
+                        </TableView>
+                    </children>
+                </AnchorPane>
+            </items>
+        </SplitPane>
+        <GridPane alignment="CENTER">
+            <children>
+                <Button maxWidth="1.7976931348623157E308" mnemonicParsing="false" text="Загрузить" GridPane.columnIndex="0" GridPane.halignment="CENTER" GridPane.hgrow="ALWAYS" GridPane.rowIndex="0" HBox.hgrow="ALWAYS">
+                    <GridPane.margin>
+                        <Insets left="3.0" right="3.0" />
+                    </GridPane.margin>
+                </Button>
+                <Button maxWidth="1.7976931348623157E308" mnemonicParsing="false" text="Скачать" GridPane.columnIndex="1" GridPane.halignment="CENTER" GridPane.hgrow="ALWAYS" GridPane.rowIndex="0" HBox.hgrow="ALWAYS">
+                    <GridPane.margin>
+                        <Insets left="3.0" right="3.0" />
+                    </GridPane.margin>
+                </Button>
+                <Button maxWidth="1.7976931348623157E308" mnemonicParsing="false" text="Загрузить" GridPane.columnIndex="2" GridPane.halignment="CENTER" GridPane.hgrow="ALWAYS" GridPane.rowIndex="0" HBox.hgrow="ALWAYS">
+                    <GridPane.margin>
+                        <Insets left="3.0" right="3.0" />
+                    </GridPane.margin>
+                </Button>
+            </children>
+            <columnConstraints>
+                <ColumnConstraints />
+                <ColumnConstraints />
+                <ColumnConstraints />
+            </columnConstraints>
+            <rowConstraints>
+                <RowConstraints />
+            </rowConstraints>
+            <padding>
+                <Insets bottom="2.0" left="2.0" right="2.0" top="2.0" />
+            </padding>
+        </GridPane>
+    </children>
+</VBox>
+
+=====================loginForm.fxml====================
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.PasswordField?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.layout.ColumnConstraints?>
+<?import javafx.scene.layout.GridPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.RowConstraints?>
+
+<GridPane fx:id="loginForm" alignment="center" hgap="10" vgap="10" xmlns:fx="http://javafx.com/fxml/1" xmlns="http://javafx.com/javafx/8.0.121" fx:controller="com.rs.client.LoginController">
+    <Label fx:id="loginField" text="User Name:" GridPane.columnIndex="0" GridPane.rowIndex="1" />
+
+    <TextField GridPane.columnIndex="1" GridPane.rowIndex="1" />
+
+    <Label text="Password:" GridPane.columnIndex="0" GridPane.rowIndex="2" />
+
+    <PasswordField fx:id="passwordField" GridPane.columnIndex="1" GridPane.rowIndex="2" />
+
+    <HBox alignment="bottom_right" spacing="10" GridPane.columnIndex="1" GridPane.rowIndex="4">
+        <Button onAction="#handleSubmitButtonAction" text="Sign In" />
+    </HBox>
+   <columnConstraints>
+      <ColumnConstraints />
+      <ColumnConstraints />
+   </columnConstraints>
+   <rowConstraints>
+      <RowConstraints />
+      <RowConstraints />
+      <RowConstraints />
+      <RowConstraints />
+      <RowConstraints />
+   </rowConstraints>
+</GridPane>
+
+=====================mainForm.fxml====================
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.SplitPane?>
+<?import javafx.scene.control.TableColumn?>
+<?import javafx.scene.control.TableView?>
+<?import javafx.scene.layout.AnchorPane?>
+<?import javafx.scene.layout.ColumnConstraints?>
+<?import javafx.scene.layout.GridPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.RowConstraints?>
+<?import javafx.scene.layout.VBox?>
+
+<VBox maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="400.0" prefWidth="600.0" xmlns="http://javafx.com/javafx/8.0.121" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.rs.client.MainFormController">
+    <children>
+        <SplitPane dividerPositions="0.5" prefHeight="160.0" prefWidth="200.0" VBox.vgrow="ALWAYS">
+            <items>
+                <AnchorPane maxHeight="1.7976931348623157E308" maxWidth="1.7976931348623157E308" minHeight="0.0" minWidth="0.0">
+                    <children>
+                        <TableView maxHeight="1.7976931348623157E308" maxWidth="1.7976931348623157E308" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0">
+                            <columns>
+                                <TableColumn maxWidth="30.0" minWidth="30.0" prefWidth="30.0" resizable="false" text="" />
+                                <TableColumn prefWidth="200.0" text="Название" />
+                                <TableColumn prefWidth="75.0" text="размер" />
+                            </columns>
+                     <columnResizePolicy>
+                        <TableView fx:constant="CONSTRAINED_RESIZE_POLICY" />
+                     </columnResizePolicy>
+                        </TableView>
+                    </children>
+                </AnchorPane>
+                <AnchorPane maxHeight="1.7976931348623157E308" maxWidth="1.7976931348623157E308" minHeight="0.0" minWidth="0.0" HBox.hgrow="ALWAYS">
+                    <children>
+                        <TableView maxHeight="1.7976931348623157E308" maxWidth="1.7976931348623157E308" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0">
+                            <columns>
+                                <TableColumn maxWidth="30.0" minWidth="30.0" prefWidth="30.0" resizable="false" text="" />
+                                <TableColumn prefWidth="200.0" text="Название" />
+                                <TableColumn prefWidth="75.0" text="размер" />
+                            </columns>
+                     <columnResizePolicy>
+                        <TableView fx:constant="CONSTRAINED_RESIZE_POLICY" />
+                     </columnResizePolicy>
+                        </TableView>
+                    </children>
+                </AnchorPane>
+            </items>
+        </SplitPane>
+        <GridPane alignment="CENTER">
+            <children>
+                <Button maxWidth="1.7976931348623157E308" mnemonicParsing="false" text="Загрузить" GridPane.columnIndex="0" GridPane.halignment="CENTER" GridPane.hgrow="ALWAYS" GridPane.rowIndex="0" HBox.hgrow="ALWAYS">
+                    <GridPane.margin>
+                        <Insets left="3.0" right="3.0" />
+                    </GridPane.margin>
+                </Button>
+                <Button maxWidth="1.7976931348623157E308" mnemonicParsing="false" text="Скачать" GridPane.columnIndex="1" GridPane.halignment="CENTER" GridPane.hgrow="ALWAYS" GridPane.rowIndex="0" HBox.hgrow="ALWAYS">
+                    <GridPane.margin>
+                        <Insets left="3.0" right="3.0" />
+                    </GridPane.margin>
+                </Button>
+                <Button maxWidth="1.7976931348623157E308" mnemonicParsing="false" text="Загрузить" GridPane.columnIndex="2" GridPane.halignment="CENTER" GridPane.hgrow="ALWAYS" GridPane.rowIndex="0" HBox.hgrow="ALWAYS">
+                    <GridPane.margin>
+                        <Insets left="3.0" right="3.0" />
+                    </GridPane.margin>
+                </Button>
+            </children>
+            <columnConstraints>
+                <ColumnConstraints />
+                <ColumnConstraints />
+                <ColumnConstraints />
+            </columnConstraints>
+            <rowConstraints>
+                <RowConstraints />
+            </rowConstraints>
+            <padding>
+                <Insets bottom="2.0" left="2.0" right="2.0" top="2.0" />
+            </padding>
+        </GridPane>
+    </children>
+</VBox>
+
+=====================loginForm.fxml====================
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.control.PasswordField?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.layout.ColumnConstraints?>
+<?import javafx.scene.layout.GridPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.RowConstraints?>
+
+<GridPane fx:id="loginForm" alignment="center" hgap="10" vgap="10" xmlns:fx="http://javafx.com/fxml/1" xmlns="http://javafx.com/javafx/8.0.121" fx:controller="com.rs.client.LoginController">
+    <Label fx:id="loginField" text="User Name:" GridPane.columnIndex="0" GridPane.rowIndex="1" />
+
+    <TextField GridPane.columnIndex="1" GridPane.rowIndex="1" />
+
+    <Label text="Password:" GridPane.columnIndex="0" GridPane.rowIndex="2" />
+
+    <PasswordField fx:id="passwordField" GridPane.columnIndex="1" GridPane.rowIndex="2" />
+
+    <HBox alignment="bottom_right" spacing="10" GridPane.columnIndex="1" GridPane.rowIndex="4">
+        <Button onAction="#handleSubmitButtonAction" text="Sign In" />
+    </HBox>
+   <columnConstraints>
+      <ColumnConstraints />
+      <ColumnConstraints />
+   </columnConstraints>
+   <rowConstraints>
+      <RowConstraints />
+      <RowConstraints />
+      <RowConstraints />
+      <RowConstraints />
+      <RowConstraints />
+   </rowConstraints>
+</GridPane>
+
+=====================mainForm.fxml====================
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.SplitPane?>
+<?import javafx.scene.control.TableColumn?>
+<?import javafx.scene.control.TableView?>
+<?import javafx.scene.layout.AnchorPane?>
+<?import javafx.scene.layout.ColumnConstraints?>
+<?import javafx.scene.layout.GridPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.RowConstraints?>
+<?import javafx.scene.layout.VBox?>
+
+<VBox maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="400.0" prefWidth="600.0" xmlns="http://javafx.com/javafx/8.0.121" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.rs.client.MainFormController">
+    <children>
+        <SplitPane dividerPositions="0.5" prefHeight="160.0" prefWidth="200.0" VBox.vgrow="ALWAYS">
+            <items>
+                <AnchorPane maxHeight="1.7976931348623157E308" maxWidth="1.7976931348623157E308" minHeight="0.0" minWidth="0.0">
+                    <children>
+                        <TableView maxHeight="1.7976931348623157E308" maxWidth="1.7976931348623157E308" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0">
+                            <columns>
+                                <TableColumn maxWidth="30.0" minWidth="30.0" prefWidth="30.0" resizable="false" text="" />
+                                <TableColumn prefWidth="200.0" text="Название" />
+                                <TableColumn prefWidth="75.0" text="размер" />
+                            </columns>
+                     <columnResizePolicy>
+                        <TableView fx:constant="CONSTRAINED_RESIZE_POLICY" />
+                     </columnResizePolicy>
+                        </TableView>
+                    </children>
+                </AnchorPane>
+                <AnchorPane maxHeight="1.7976931348623157E308" maxWidth="1.7976931348623157E308" minHeight="0.0" minWidth="0.0" HBox.hgrow="ALWAYS">
+                    <children>
+                        <TableView maxHeight="1.7976931348623157E308" maxWidth="1.7976931348623157E308" AnchorPane.bottomAnchor="0.0" AnchorPane.leftAnchor="0.0" AnchorPane.rightAnchor="0.0" AnchorPane.topAnchor="0.0">
+                            <columns>
+                                <TableColumn maxWidth="30.0" minWidth="30.0" prefWidth="30.0" resizable="false" text="" />
+                                <TableColumn prefWidth="200.0" text="Название" />
+                                <TableColumn prefWidth="75.0" text="размер" />
+                            </columns>
+                     <columnResizePolicy>
+                        <TableView fx:constant="CONSTRAINED_RESIZE_POLICY" />
+                     </columnResizePolicy>
+                        </TableView>
+                    </children>
+                </AnchorPane>
+            </items>
+        </SplitPane>
+        <GridPane alignment="CENTER">
+            <children>
+                <Button maxWidth="1.7976931348623157E308" mnemonicParsing="false" text="Загрузить" GridPane.columnIndex="0" GridPane.halignment="CENTER" GridPane.hgrow="ALWAYS" GridPane.rowIndex="0" HBox.hgrow="ALWAYS">
+                    <GridPane.margin>
+                        <Insets left="3.0" right="3.0" />
+                    </GridPane.margin>
+                </Button>
+                <Button maxWidth="1.7976931348623157E308" mnemonicParsing="false" text="Скачать" GridPane.columnIndex="1" GridPane.halignment="CENTER" GridPane.hgrow="ALWAYS" GridPane.rowIndex="0" HBox.hgrow="ALWAYS">
+                    <GridPane.margin>
+                        <Insets left="3.0" right="3.0" />
+                    </GridPane.margin>
+                </Button>
+                <Button maxWidth="1.7976931348623157E308" mnemonicParsing="false" text="Загрузить" GridPane.columnIndex="2" GridPane.halignment="CENTER" GridPane.hgrow="ALWAYS" GridPane.rowIndex="0" HBox.hgrow="ALWAYS">
+                    <GridPane.margin>
+                        <Insets left="3.0" right="3.0" />
+                    </GridPane.margin>
+                </Button>
+            </children>
+            <columnConstraints>
+                <ColumnConstraints />
+                <ColumnConstraints />
+                <ColumnConstraints />
+            </columnConstraints>
+            <rowConstraints>
+                <RowConstraints />
+            </rowConstraints>
+            <padding>
+                <Insets bottom="2.0" left="2.0" right="2.0" top="2.0" />
+            </padding>
+        </GridPane>
+    </children>
+</VBox>
+
+=====================CommandInboundHandler.java====================
+package com.rs.server;
+
+import com.rs.common.messages.*;
+import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.ChannelInboundHandlerAdapter;
+import io.netty.channel.socket.SocketChannel;
+import io.netty.util.ReferenceCountUtil;
+
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ExecutorService;
+
+public class CommandInboundHandler extends ChannelInboundHandlerAdapter {
+    private final ExecutorService pool;
+    private SocketChannel channel;
+    private Context context;
+    private BlockingQueue<Job> queue;
+    private Job job; //не буду создавать каждый раз. Пока на одного клиента один поток.
+
+    public CommandInboundHandler(SocketChannel channel, ExecutorService pool, BlockingQueue<Job> queue) {
+        this.channel = channel;
+        this.pool = pool;
+        this.queue = queue;
+        context = new Context();
+        job = Job.getInstance(this.channel, context);
+    }
+
+    @Override
+    public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
+        try {
+            if (msg == null)
+                return;
+            if (job.isFree()) {
+                job.setFree(false);
+                job.setCommand((Command) msg);
+                queue.add(job);
+            } else {
+                Response response = Response.getInstance();
+                response.setResponseCode(ResponseCode.BUSY);
+                channel.writeAndFlush(response);
+            }
+        } finally {
+            ReferenceCountUtil.release(msg);
+        }
+    }
+
+    @Override
+    public void channelReadComplete(ChannelHandlerContext ctx) throws Exception {
+        ctx.flush();
+    }
+
+    @Override
+    public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
+        cause.printStackTrace();
+        ctx.close();
+    }
+
+}
+
+=====================CommandProcessor.java====================
+package com.rs.server;
+
+import com.rs.common.DefaultConfig;
+import com.rs.common.FileUtilities;
+import com.rs.common.TempFile;
+import com.rs.common.messages.*;
+import com.rs.common.model.FileDescr;
+import com.rs.common.model.FilePart;
+import com.rs.server.db.User;
+import org.apache.log4j.Logger;
+
+import java.io.IOException;
+import java.io.RandomAccessFile;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.ArrayList;
+
+import static com.rs.common.messages.ResponseCode.*;
+
+public class CommandProcessor {
+    private static Logger logger = Logger.getRootLogger();
+
+    //GetFileCommand
+    public static Response process(GetFileCommand command, Context context) {
+        FileDescr fileDescr = command.getFileDescr();
+        long startPos = command.getStartPos();
+        int length = command.getLength();
+
+        Response response = Response.getInstance();
+        if (!context.isAuthorized()) {
+            response.setResponseCode(ACCESS_DENIED);
+            return response;
+        }
+        System.out.println(fileDescr.getName() + " " + startPos);
+        try {
+            Path targetFilePath = FileUtilities.getFilePath(context.getRootPath(), fileDescr.getPath());
+            if (!Files.exists(targetFilePath)) {
+                response.setResponseCode(FILE_NOT_FOUND);
+                return response;
+            }
+            FilePart filePart = new FilePart();
+            RandomAccessFile file = new RandomAccessFile(targetFilePath.toFile(), "r");
+            file.seek(startPos);
+            int count = file.read(filePart.getBytes(), 0, length);
+            if (count < length) {
+                response.setResponseCode(ResponseCode.COMPLETE);
+            } else {
+                response.setResponseCode(OK);
+            }
+            filePart.setLength(count);
+            filePart.setStartPos(startPos);
+            filePart.setDigest();
+            response.setFilePart(filePart);
+            file.close();
+        } catch (IOException e) {
+            logger.error(e.getLocalizedMessage());
+            response.setResponseCode(CANNOT_SAVE_FILE);
+            response.setErrorDescription(e.getLocalizedMessage());
+        }
+        return response;
+    }
+
+    //SignInCommand
+    public static Response process(SignInCommand command, Context context) {
+        Response response = Response.getInstance();
+        ResponseCode responseCode;
+        String login = command.getLogin();
+        try {
+            if (!User.exists(login)) {
+                User user = User.create(login, command.getPasswordHash(), command.getEmail());
+                context.setUser(user);
+                context.setRootPath(Paths.get(DefaultConfig.SERVER_ROOT_PATH, login));
+                Files.createDirectory(context.getRootPath());
+                responseCode = OK;
+            } else {
+                responseCode = ResponseCode.LOGIN_IS_BUSY;
+            }
+        } catch (Exception e){
+            logger.error(e.getLocalizedMessage());
+            responseCode = ERROR;
+            response.setErrorDescription(e.getLocalizedMessage());
+        }
+        response.setResponseCode(responseCode);
+        return response;
+    }
+
+    //LoginCommand
+    public static Response process(LoginCommand command, Context context) {
+        Response response = Response.getInstance();
+        ResponseCode responseCode;
+        String login = command.getLogin();
+        String passwordHash = command.getPasswordHash();
+        try {
+            if (User.authenticated(login, passwordHash)) {
+                context.setUser(User.get(login));
+                context.setRootPath(Paths.get(DefaultConfig.SERVER_ROOT_PATH, login));
+                responseCode = OK;
+            } else {
+                responseCode = INVALID_LOGIN;
+            }
+        } catch (Exception e){
+            logger.error(e.getLocalizedMessage());
+            responseCode = ERROR;
+            response.setErrorDescription(e.getLocalizedMessage());
+        }
+        response.setResponseCode(responseCode);
+        return response;
+    }
+
+    //SaveFileCommand
+    public static Response process(SaveFileCommand command, Context context) {
+        Response response = Response.getInstance();
+        if (!context.isAuthorized()) {
+            response.setResponseCode(ACCESS_DENIED);
+            return response;
+        }
+        FileDescr fileDescr = command.getFileDescr();
+        logger.debug(fileDescr + " скачка");
+        fileDescr.setRoot(context.getRootPath());
+        FilePart filePart = command.getFilePart();
+        try {
+            TempFile tempFile = context.getTempFile();
+            Path targetFilePath = fileDescr.getAbsolutePath();
+            if (tempFile != null && !tempFile.getTargetPath().equals(targetFilePath)) {
+                System.out.println("Remove " + tempFile.getTempFilePath());
+                tempFile.close();
+                Files.deleteIfExists(tempFile.getTempFilePath()); //удаляем предыдущий временный
+                tempFile = null;
+            }
+            if (tempFile == null) {
+                tempFile = TempFile.getInstance(fileDescr.getAbsolutePath());
+                context.setTempFile(tempFile);
+            }
+            if (filePart.damaged()) {
+                response.setResponseCode(FILE_CORRUPTED);
+                return response;
+            } else {
+                tempFile.seek(filePart.getStartPos());
+                tempFile.write(filePart.getBytes(), 0, filePart.getLength());
+                if (tempFile.getFilePointer() == fileDescr.getSize()) {  //файл записан
+                    tempFile.moveToTarget();
+                    context.setTempFile(null);
+                }
+                response.setResponseCode(OK);
+            }
+        } catch (IOException e) {
+            logger.error(e.getLocalizedMessage());
+            response.setResponseCode(CANNOT_SAVE_FILE);
+            response.setErrorDescription(e.getLocalizedMessage());
+            return response;
+        }
+        return response;
+    }
+
+    //MoveCommand
+    public static Response process(MoveCommand command, Context context) {
+        FileDescr fileDescr = command.getFileDescr();
+        FileDescr newFileDescr = command.getNewFileDescr();
+        Response response = Response.getInstance();
+        Path filePath = FileUtilities.getFilePath(context.getRootPath(), fileDescr.getPath());
+        Path newFilePath = FileUtilities.getFilePath(context.getRootPath(), newFileDescr.getPath());
+        try {
+            Files.move(filePath, newFilePath);
+            response.setResponseCode(OK);
+        } catch (IOException e) {
+            logger.error(e.getLocalizedMessage());
+            response.setResponseCode(ERROR);
+            response.setErrorDescription(e.getLocalizedMessage());
+        }
+        return response;
+    }
+
+    //GetDirectoryCommand
+    public static Response process(GetDirectoryCommand command, Context context) {
+        FileDescr directoryDescriptor = command.getFileDescr();
+        directoryDescriptor.setRoot(context.getRootPath());
+        logger.debug(directoryDescriptor.toString());
+
+        Response response = Response.getInstance();
+        Path directoryPath = directoryDescriptor.getAbsolutePath();
+        logger.debug(directoryPath);
+
+        if (!Files.isDirectory(directoryPath)) {
+            response.setResponseCode(ResponseCode.DIRECTORY_NOT_FOUND);
+            return response;
+        }
+        ArrayList<FileDescr> filesList;
+        try {
+            filesList = FileUtilities.getRelativeDirectoryList(directoryDescriptor);
+        } catch (IOException e) {
+            response.setResponseCode(ERROR);
+            response.setErrorDescription(e.getLocalizedMessage());
+            return response;
+        }
+        response.setResponseCode(OK);
+        response.setFileDescrList(filesList);
+        return response;
+    }
+
+    //DeleteFileCommand
+    public static Response process(DeleteFileCommand command, Context context) {
+        FileDescr fileDescr = command.getFileDescr();
+        Response response = Response.getInstance();
+        Path filePath = FileUtilities.getFilePath(context.getRootPath(), fileDescr.getPath());
+        try {
+            Files.delete(filePath);
+            response.setResponseCode(OK);
+        } catch (IOException e) {
+            response.setResponseCode(ERROR);
+            response.setErrorDescription(e.getMessage());
+        }
+        return response;
+    }
+
+}
+
+=====================Context.java====================
+package com.rs.server;
+
+import com.rs.common.DefaultConfig;
+import com.rs.common.TempFile;
+import com.rs.server.db.User;
+
+import java.nio.file.Path;
+
+public class Context {
+    public User getUser() {
+        return user;
+    }
+
+    public void setUser(User user) {
+        this.user = user;
+    }
+
+    public byte[] getBuffer() {
+        if (buffer == null)
+            buffer = new byte[DefaultConfig.FILE_CHANK_SIZE];
+        return buffer;
+    }
+
+
+    public TempFile getTempFile() {
+        return tempFile;
+    }
+
+    public void setTempFile(TempFile tempFile) {
+        this.tempFile = tempFile;
+    }
+
+
+    public Path getRootPath() {
+        return rootPath;
+    }
+
+    public void setRootPath(Path rootPath) {
+        this.rootPath = rootPath;
+    }
+
+    public boolean isAuthorized() {
+        return user != null;
+    }
+
+    private User user;
+    private Path rootPath;
+    private TempFile tempFile;
+    private byte[] buffer;
+
+}
+
+=====================DB.java====================
+package com.rs.server.db;
+
+import org.apache.log4j.Logger;
+import org.sqlite.JDBC;
+
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.SQLException;
+
+public class DB {
+
+    private static final String driverName = "org.sqlite.JDBC";
+    private static String databaseName = JDBC.PREFIX + "users.db";
+    private static Connection connection;
+
+    static public Connection connect() {
+        if (connection == null)
+            try {
+                Class.forName(driverName);
+                connection = DriverManager.getConnection(databaseName);
+            } catch (ClassNotFoundException e) {
+                e.printStackTrace();
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+        return connection;
+    }
+
+    public void disconnect() {
+        try {
+            if (connection != null && !connection.isClosed()) {
+                connection.close();
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+}
+
+=====================User.java====================
+package com.rs.server.db;
+
+import org.apache.log4j.Logger;
+
+import java.sql.*;
+import java.time.LocalDateTime;
+
+public class User {
+    static Logger logger = Logger.getRootLogger();
+    private static final String tableName = "Users";
+
+    public String getLogin() {
+        return login;
+    }
+
+    public String getPasswordHash() {
+        return passwordHash;
+    }
+
+    public void setPasswordHash(String passwordHash) {
+        this.passwordHash = passwordHash;
+    }
+
+    public LocalDateTime getRegisterDate() {
+        return registerDate;
+    }
+
+    public void setRegisterDate(LocalDateTime registerDate) {
+        this.registerDate = registerDate;
+    }
+
+    public UserState getState() {
+        return state;
+    }
+
+    public void setState(UserState state) {
+        this.state = state;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public void setEmail(String email) {
+        this.email = email;
+    }
+
+    private String login;
+    private String passwordHash;
+    private LocalDateTime registerDate;
+    private UserState state;
+    private String email;
+
+    static Connection connection;
+
+    //init table
+    static {
+        Statement statement;
+        try {
+            connection = DB.connect();
+            statement = connection.createStatement();
+            ResultSet rs = statement.executeQuery(String.format("SELECT count(*) FROM sqlite_master WHERE type='table' AND name='%s'", tableName));
+            if (rs.getInt(1) == 0) {
+                logger.info("Table " + tableName + " was created");
+                statement.executeUpdate(String.format("CREATE TABLE %s (id INTEGER PRIMARY KEY, login TEXT UNIQUE NOT NULL, passwordHash TEXT NOT NULL, registerDate TEXT, state INTEGER NOT NULL, email TEXT)", tableName));
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static void createDatabase() {
+        Connection connection = DB.connect();
+        try {
+            Statement statement = connection.createStatement();
+            ResultSet rs = statement.executeQuery(String.format("SELECT count(*) FROM sqlite_master WHERE type='table' AND name=%s", tableName));
+            if (rs.getInt(1) == 0) {
+                statement.executeUpdate(String.format("CREATE TABLE %s (id INTEGER PRIMARY KEY, login TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL, register_date TEXT)", tableName));
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static void drop() {
+        Connection connection = DB.connect();
+        try {
+            Statement statement = connection.createStatement();
+            statement.executeUpdate(String.format("DROP TABLE IF EXISTS %s", tableName));
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
+    // authentication
+    public static boolean authenticated(String login, String passwordHash) {
+        try {
+            User user;
+            if ((((user = get(login))) != null && (user.passwordHash.equals(passwordHash)) && (user.state == UserState.ACTIVE))) {
+                return true;
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return false;
+    }
+
+    public static boolean exists(String login) {
+        try {
+            User user = get(login);
+            return user != null;
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return false;
+    }
+
+    public static User create(String login, String passwordHash, String email) throws SQLException {
+        PreparedStatement statement = connection.prepareStatement("INSERT INTO " + tableName + " (login, passwordHash, registerDate, state, email) VALUES (?,?,?,?,?)");
+        statement.setString(1, login);
+        statement.setString(2, passwordHash);
+        statement.setString(3, LocalDateTime.now().toString());
+        statement.setInt(4, UserState.ACTIVE.ordinal());
+        statement.setString(5, email);
+        statement.executeUpdate();
+        return get(login);
+    }
+
+    public void save() throws SQLException {
+        PreparedStatement statement = connection.prepareStatement("UPDATE  " + tableName + " SET passwordHash = ?, registerDate = ?, state = ? WHERE login = ?");
+        statement.setString(4, login);
+        statement.setString(1, passwordHash);
+        statement.setString(2, registerDate.toString());
+        statement.setInt(3, state.ordinal());
+        statement.executeUpdate();
+    }
+
+    public static User get(String login) throws SQLException {
+        PreparedStatement statement = connection.prepareStatement("SELECT passwordHash, registerDate, state FROM " + tableName + " WHERE login = ?");
+        statement.setString(1, login);
+        ResultSet rs = statement.executeQuery();
+        User user = null;
+        if (rs.next()) {
+            user = new User();
+            user.login = login;
+            user.passwordHash = rs.getString(1);
+            user.registerDate = LocalDateTime.parse(rs.getString(2));
+            user.state = UserState.values()[rs.getInt(3)];
+
+        }
+        return user;
+    }
+
+    public static void main(String[] args) {
+        User user = new User();
+    }
+
+}
+
+=====================UserState.java====================
+package com.rs.server.db;
+
+public enum UserState {
+    ACTIVE, BLOCKED
+}
+
+=====================Job.java====================
+package com.rs.server;
+
+import com.rs.common.messages.*;
+import io.netty.channel.socket.SocketChannel;
+
+public class Job {
+
+    private Context context;
+    private Command command;
+    private SocketChannel channel;
+    private volatile boolean free;
+
+    public void setFree(boolean free) {
+        this.free = free;
+    }
+
+    public boolean isFree() {
+        return free;
+    }
+
+    public static Job getInstance(SocketChannel channel, Context context) {
+        return new Job(channel, context);  //TODO организовать pool
+    }
+
+    public Job(SocketChannel channel, Context context) {
+        this.context = context;
+        this.channel = channel;
+        free = true;
+    }
+
+    public void setCommand(Command command) {
+        this.command = command;
+    }
+
+    public void execute() {
+        if (command instanceof GetFileCommand)
+            channel.writeAndFlush(CommandProcessor.process((GetFileCommand) command, context));
+        else if (command instanceof SaveFileCommand)
+            channel.writeAndFlush(CommandProcessor.process((SaveFileCommand) command, context));
+        else if (command instanceof SignInCommand)
+            channel.writeAndFlush(CommandProcessor.process((SignInCommand) command, context));
+        else if (command instanceof LoginCommand)
+            channel.writeAndFlush(CommandProcessor.process((LoginCommand) command, context));
+        else if (command instanceof MoveCommand)
+            channel.writeAndFlush(CommandProcessor.process((MoveCommand) command, context));
+        else if (command instanceof GetDirectoryCommand)
+            channel.writeAndFlush(CommandProcessor.process((GetDirectoryCommand) command, context));
+        else if (command instanceof DeleteFileCommand)
+            channel.writeAndFlush(CommandProcessor.process((DeleteFileCommand) command, context));
+    }
+
+}
+
+=====================JobHandler.java====================
+package com.rs.server;
+
+import java.util.concurrent.BlockingQueue;
+
+public class JobHandler extends Thread{
+
+    BlockingQueue<Job> queue;
+
+    public JobHandler(BlockingQueue<Job> queue) {
+        this.queue = queue;
+    }
+
+    @Override
+    public void run() {
+        while (!isInterrupted()) {
+            Job job;
+            try {
+                job = queue.take();
+                job.execute();
+                job.setFree(true);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+                break;
+            }
+        }
+    }
+}
+
+=====================YACStorageServer.java====================
+package com.rs.server;
+
+import io.netty.bootstrap.ServerBootstrap;
+import io.netty.channel.ChannelFuture;
+import io.netty.channel.ChannelInitializer;
+import io.netty.channel.ChannelOption;
+import io.netty.channel.EventLoopGroup;
+import io.netty.channel.nio.NioEventLoopGroup;
+import io.netty.channel.socket.SocketChannel;
+import io.netty.channel.socket.nio.NioServerSocketChannel;
+import io.netty.handler.codec.serialization.ClassResolvers;
+import io.netty.handler.codec.serialization.ObjectDecoder;
+import io.netty.handler.codec.serialization.ObjectEncoder;
+import com.rs.common.DefaultConfig;
+import org.apache.log4j.Logger;
+import org.apache.log4j.PropertyConfigurator;
+
+import java.util.concurrent.*;
+
+
+public class YACStorageServer {
+    private static Logger logger;
+    //TODO add ssl
+
+    private int port;
+    private ExecutorService pool;
+    private BlockingQueue<Job> queue;
+
+    public YACStorageServer(int port) {
+        setLogger();
+        this.port = port;
+    }
+
+    public void run() {
+        queue  = new LinkedBlockingQueue<>();
+        pool = Executors.newFixedThreadPool(DefaultConfig.POOL);
+        for (int i = 0; i < DefaultConfig.POOL; i++) {
+            pool.execute(new JobHandler(queue));
+        }
+        EventLoopGroup serverGroup  = new NioEventLoopGroup();
+        EventLoopGroup workerGroup  = new NioEventLoopGroup();
+        try {
+            ServerBootstrap bootstrap = new ServerBootstrap();
+            bootstrap.group(serverGroup, workerGroup)
+                    .channel(NioServerSocketChannel.class)
+                    .childHandler(new ChannelInitializer<SocketChannel>() {
+
+                        @Override
+                        protected void initChannel(SocketChannel channel) throws Exception {
+                            channel.pipeline().addLast(
+                                    new ObjectDecoder(DefaultConfig.MAX_OBJ_SIZE, ClassResolvers.cacheDisabled(null)),
+                                    new ObjectEncoder(),
+                                    new CommandInboundHandler(channel, pool, queue));
+                        }
+                    })
+                    .option(ChannelOption.SO_BACKLOG, DefaultConfig.WAITING_CONNECTION_REQUESTS)
+                    .option(ChannelOption.TCP_NODELAY, true)
+                    .childOption(ChannelOption.SO_KEEPALIVE, true);
+            ChannelFuture future = bootstrap.bind(port).sync();
+            future.channel().closeFuture().sync();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        } finally {
+            serverGroup.shutdownGracefully();
+            workerGroup.shutdownGracefully();
+        };
+    }
+
+    public static void setLogger() {
+        String nameFile = "log4j.xml";
+        PropertyConfigurator.configure(nameFile);
+        logger = Logger.getRootLogger();
+    }
+
+    public static void main(String[] args) throws Exception {
+        int port;
+        if (args.length > 0) {
+            port = Integer.parseInt(args[0]);
+        } else {
+            port = DefaultConfig.PORT;
+        }
+        new YACStorageServer(port).run();
+    }
+
+}
